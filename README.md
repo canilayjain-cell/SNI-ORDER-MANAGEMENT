@@ -108,8 +108,12 @@ role itself. Editing the browser's JavaScript cannot bypass this.
   URL can view it, but nothing is publicly listed or browsable. Only
   sales/admin can upload to the first, only factory/admin to the second.
 - **Order numbers**: assigned atomically by a Postgres sequence inside the
-  `place_order()` function (format `SNI / 26-27 / 001`, financial year
+  `place_order_multi()` function (format `SNI / 26-27 / 001`, financial year
   Apr–Mar) — no race condition between two people saving orders at once.
+  One submission gets one order number; if it has several items they share
+  that number and each becomes its own row (`line_no` / `line_count`, shown
+  as `… · item 2/3`) so the floor can start, complete and dispatch each
+  item independently.
 - **Middleware** (`middleware.ts`) refreshes the Supabase session on every
   request and redirects signed-out users to `/login`, and redirects a
   signed-in user away from any tab their role can't reach.

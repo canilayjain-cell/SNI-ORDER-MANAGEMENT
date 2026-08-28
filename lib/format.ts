@@ -1,5 +1,11 @@
 import type { CSSProperties } from "react";
 
+// Order number for display. Items placed together share one order_no, so when
+// there is more than one item we append its position, e.g. "SNI / 26-27 / 001 · item 2/3".
+export function orderLabel(o: { order_no: string; line_no?: number; line_count?: number }): string {
+  return o.line_count && o.line_count > 1 ? `${o.order_no} · item ${o.line_no}/${o.line_count}` : o.order_no;
+}
+
 export function fmtDate(d?: string | null): string {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });

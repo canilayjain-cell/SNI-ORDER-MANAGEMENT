@@ -5,7 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/lib/toast";
 import { canWorkFloor } from "@/lib/roles";
-import { deliveryDueInfo, fmtDate } from "@/lib/format";
+import { deliveryDueInfo, fmtDate, orderLabel } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import Stepper from "@/components/Stepper";
 import { usePhotoViewer } from "@/components/PhotoViewer";
@@ -110,7 +110,7 @@ function FloorTicket({
       </div>
       <div className="ticket-body">
         <div className="ticket-top">
-          <span className="ticket-id mono">{order.order_no}</span>
+          <span className="ticket-id mono">{orderLabel(order)}</span>
           <StatusBadge status={order.status} />
         </div>
         <div className="ticket-title">{order.party}</div>

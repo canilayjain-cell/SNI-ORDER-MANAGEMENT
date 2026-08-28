@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/lib/toast";
 import { resizeImageToBlob } from "@/lib/image";
 import { uploadToBucket } from "@/lib/storage";
-import { fmtDateTime } from "@/lib/format";
+import { fmtDateTime, orderLabel } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import Stepper from "@/components/Stepper";
 import { usePhotoViewer } from "@/components/PhotoViewer";
@@ -88,7 +88,7 @@ export default function DispatchPage() {
               <div className="recent-chip" key={o.id}>
                 {o.dispatch_photo_url && <img src={o.dispatch_photo_url} alt={`Dispatch proof for ${o.order_no}`} />}
                 <div>
-                  <div className="ticket-id mono">{o.order_no}</div>
+                  <div className="ticket-id mono">{orderLabel(o)}</div>
                   <div style={{ fontSize: 11, color: "var(--g600)" }}>{fmtDateTime(o.dispatched_at)}</div>
                 </div>
               </div>
@@ -120,7 +120,7 @@ function DispatchTicket({
       </div>
       <div className="ticket-body">
         <div className="ticket-top">
-          <span className="ticket-id mono">{order.order_no}</span>
+          <span className="ticket-id mono">{orderLabel(order)}</span>
           <StatusBadge status={order.status} />
         </div>
         <div className="ticket-title">{order.party}</div>

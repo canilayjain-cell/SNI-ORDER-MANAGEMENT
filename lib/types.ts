@@ -19,6 +19,8 @@ export interface OrderPhoto {
 export interface Order {
   id: string;
   order_no: string;
+  line_no: number;
+  line_count: number;
   serial_num: number;
   party: string;
   thick: string;

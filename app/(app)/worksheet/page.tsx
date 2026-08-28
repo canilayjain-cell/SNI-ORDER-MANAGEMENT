@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useOrders } from "@/lib/hooks/useOrders";
 import { useAuth } from "@/components/AuthProvider";
 import { canExport } from "@/lib/roles";
-import { average, deliveryDueInfo, durationHours, fmtDate, fmtDateTime, fmtDuration, fmtHours } from "@/lib/format";
+import { average, deliveryDueInfo, durationHours, fmtDate, fmtDateTime, fmtDuration, fmtHours, orderLabel } from "@/lib/format";
 import StatusBadge, { STATUS_COLOR, STATUS_LABEL } from "@/components/StatusBadge";
 import PrintDoc from "@/components/PrintDoc";
 import { toast } from "@/lib/toast";
@@ -69,11 +69,12 @@ export default function WorksheetPage() {
 
   function exportCSV() {
     if (!orders.length) { toast("No orders to export"); return; }
-    const header = ["Order No", "Order Date", "Party", "Thickness", "Panel", "Length(mm)", "Breadth(mm)", "Qty",
+    const header = ["Order No", "Item", "Order Date", "Party", "Thickness", "Panel", "Length(mm)", "Breadth(mm)", "Qty",
       "Total Area(sqft)", "Design", "Delivery", "Status", "In Progress At", "Completed At", "Dispatched At",
       "Production Time", "Dispatch Lead Time", "Notes"];
     const rows = orders.map((o) => [
-      o.order_no, fmtDate(o.created_at), o.party, o.thick, o.panel, o.length_mm, o.breadth_mm, o.qty,
+      o.order_no, o.line_count > 1 ? `${o.line_no}/${o.line_count}` : "",
+      fmtDate(o.created_at), o.party, o.thick, o.panel, o.length_mm, o.breadth_mm, o.qty,
       o.total_sqft, o.design, fmtDate(o.delivery_date), STATUS_LABEL[o.status],
       fmtDateTime(o.in_progress_at), fmtDateTime(o.completed_at), fmtDateTime(o.dispatched_at),
       fmtDuration(o.in_progress_at, o.completed_at), fmtDuration(o.created_at, o.dispatched_at),
@@ -204,7 +205,7 @@ export default function WorksheetPage() {
                           />
                         </td>
                       )}
-                      <td className="mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--g600)" }}>{o.order_no}</td>
+                      <td className="mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--g600)" }}>{orderLabel(o)}</td>
                       <td>{o.party}</td>
                       <td style={{ fontSize: 12 }}>{o.panel}<br /><span style={{ color: "var(--g600)" }}>{o.thick}</span></td>
                       <td style={{ fontSize: 12 }}>{o.length_mm}×{o.breadth_mm} mm<br /><span style={{ color: "var(--g600)" }}>{o.total_sqft} sqft</span></td>

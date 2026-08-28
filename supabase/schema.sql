@@ -97,7 +97,11 @@ create sequence public.order_serial_seq start 1;
 
 create table public.orders (
   id uuid primary key default gen_random_uuid(),
-  order_no text not null unique,
+  -- one order_no per form submission; multiple item rows share it.
+  -- line_no is the item's position within that order (1-based), line_count the total.
+  order_no text not null,
+  line_no integer not null default 1,
+  line_count integer not null default 1,
   serial_num integer not null,
   party text not null,
   thick text not null,
@@ -124,6 +128,8 @@ create table public.orders (
 
 create index orders_status_idx on public.orders(status);
 create index orders_created_at_idx on public.orders(created_at desc);
+create index orders_order_no_idx on public.orders(order_no);
+create unique index orders_order_no_line_idx on public.orders(order_no, line_no);
 
 create table public.order_photos (
   id uuid primary key default gen_random_uuid(),
@@ -240,6 +246,89 @@ begin
   end if;
 
   return v_order;
+end;
+$$;
+
+-- place a new order with one or more items (sales or admin).
+-- All items share a single order_no / serial_num; each becomes its own row
+-- so the floor can Start/Complete/Dispatch items independently.
+-- p_items is a JSON array: [{ "thick", "panel", "length", "breadth", "qty", "design" }, ...]
+create or replace function public.place_order_multi(
+  p_party text, p_delivery date, p_reminder_days integer,
+  p_notes text, p_photo_urls text[], p_items jsonb
+)
+returns setof public.orders
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_serial integer;
+  v_fy text;
+  v_order_no text;
+  v_seq_base integer;
+  v_line_count integer;
+  v_idx integer := 0;
+  v_item jsonb;
+  v_length numeric;
+  v_breadth numeric;
+  v_qty integer;
+  v_area numeric;
+  v_total numeric;
+  v_order public.orders;
+  v_photo text;
+  v_month integer := extract(month from now())::int;
+  v_year integer := extract(year from now())::int;
+  v_fy_start integer;
+begin
+  if public.current_role() not in ('sales','admin') then
+    raise exception 'Only sales or admin accounts can place orders';
+  end if;
+
+  v_line_count := jsonb_array_length(p_items);
+  if v_line_count is null or v_line_count = 0 then
+    raise exception 'An order needs at least one item';
+  end if;
+
+  v_fy_start := case when v_month >= 4 then v_year else v_year - 1 end;
+  v_fy := lpad((v_fy_start % 100)::text, 2, '0') || '-' || lpad(((v_fy_start + 1) % 100)::text, 2, '0');
+
+  v_serial := nextval('public.order_serial_seq');
+  v_order_no := 'SNI / ' || v_fy || ' / ' || lpad(v_serial::text, 3, '0');
+
+  select coalesce(max(sequence), 0) into v_seq_base
+    from public.orders where status in ('pending','in_progress');
+
+  for v_item in select * from jsonb_array_elements(p_items)
+  loop
+    v_idx := v_idx + 1;
+    v_length  := (v_item->>'length')::numeric;
+    v_breadth := (v_item->>'breadth')::numeric;
+    v_qty     := coalesce((v_item->>'qty')::integer, 1);
+    v_area  := (v_length * v_breadth) / 92903.0;
+    v_total := v_area * v_qty;
+
+    insert into public.orders (
+      order_no, line_no, line_count, serial_num, party, thick, panel,
+      length_mm, breadth_mm, qty, area_sqft, total_sqft, design,
+      delivery_date, reminder_days, reminder_date, notes, status, sequence, created_by
+    ) values (
+      v_order_no, v_idx, v_line_count, v_serial, p_party,
+      v_item->>'thick', v_item->>'panel', v_length, v_breadth, v_qty,
+      v_area, v_total, coalesce(v_item->>'design', '2D'),
+      p_delivery, p_reminder_days, p_delivery - p_reminder_days,
+      p_notes, 'pending', v_seq_base + v_idx, auth.uid()
+    ) returning * into v_order;
+
+    insert into public.order_history (order_id, status, changed_by)
+      values (v_order.id, 'pending', auth.uid());
+
+    if p_photo_urls is not null then
+      foreach v_photo in array p_photo_urls loop
+        insert into public.order_photos (order_id, url) values (v_order.id, v_photo);
+      end loop;
+    end if;
+
+    return next v_order;
+  end loop;
 end;
 $$;
 
@@ -408,11 +497,23 @@ grant execute on function public.is_admin() to authenticated;
 grant execute on function public.is_factory_or_admin() to authenticated;
 grant execute on function public.is_sales_or_admin() to authenticated;
 grant execute on function public.place_order(text,text,text,numeric,numeric,integer,text,date,integer,text,text[]) to authenticated;
+grant execute on function public.place_order_multi(text,date,integer,text,text[],jsonb) to authenticated;
 grant execute on function public.start_order(uuid) to authenticated;
 grant execute on function public.complete_order(uuid) to authenticated;
 grant execute on function public.set_dispatch_photo(uuid,text) to authenticated;
 grant execute on function public.confirm_dispatch(uuid) to authenticated;
 grant execute on function public.resequence_order(uuid,text) to authenticated;
+
+-- ============================================================================
+-- MIGRATION — run this block ONLY on a database created before multi-item
+-- orders existed. On a fresh run of this file it is a harmless no-op.
+-- ============================================================================
+
+alter table public.orders add column if not exists line_no integer not null default 1;
+alter table public.orders add column if not exists line_count integer not null default 1;
+alter table public.orders drop constraint if exists orders_order_no_key;
+create unique index if not exists orders_order_no_line_idx on public.orders(order_no, line_no);
+create index if not exists orders_order_no_idx on public.orders(order_no);
 
 -- ============================================================================
 -- Done. Next: create your first login (Authentication > Add user in the

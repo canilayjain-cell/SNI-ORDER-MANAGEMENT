@@ -1,5 +1,5 @@
 import type { Order } from "@/lib/types";
-import { fmtDate } from "@/lib/format";
+import { fmtDate, orderLabel } from "@/lib/format";
 import { STATUS_LABEL } from "@/components/StatusBadge";
 
 export default function PrintDoc({ orders }: { orders: Order[] }) {
@@ -10,7 +10,7 @@ export default function PrintDoc({ orders }: { orders: Order[] }) {
           <div style={{ borderBottom: "3px solid #185FA5", paddingBottom: 14, marginBottom: 18, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
             <div>
               <div style={{ fontSize: 22, fontWeight: 700, color: "#185FA5" }}>SNI Sales Order</div>
-              <div style={{ fontSize: 13, color: "#5F5E5A", marginTop: 3 }}>{o.order_no} · {fmtDate(o.created_at)}</div>
+              <div style={{ fontSize: 13, color: "#5F5E5A", marginTop: 3 }}>{orderLabel(o)} · {fmtDate(o.created_at)}</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 12, color: "#5F5E5A" }}>Status</div>

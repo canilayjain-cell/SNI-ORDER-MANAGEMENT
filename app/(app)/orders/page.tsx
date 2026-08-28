@@ -128,30 +128,30 @@ export default function NewOrderPage() {
         photoUrls.push(url);
       }
 
-      const orderNos: string[] = [];
-      for (const it of items) {
-        const { data, error } = await supabase.rpc("place_order", {
-          p_party: party,
-          p_thick: it.thick,
-          p_panel: it.panel,
-          p_length: parseFloat(it.length),
-          p_breadth: parseFloat(it.breadth),
-          p_qty: parseInt(it.qty, 10) || 1,
-          p_design: it.design,
-          p_delivery: delivery,
-          p_reminder_days: parseInt(reminderDays, 10),
-          p_notes: notes,
-          p_photo_urls: photoUrls,
-        });
-        if (error) throw error;
-        orderNos.push(data.order_no);
-      }
+      const { data, error } = await supabase.rpc("place_order_multi", {
+        p_party: party,
+        p_delivery: delivery,
+        p_reminder_days: parseInt(reminderDays, 10),
+        p_notes: notes,
+        p_photo_urls: photoUrls,
+        p_items: items.map((it) => ({
+          thick: it.thick,
+          panel: it.panel,
+          length: parseFloat(it.length),
+          breadth: parseFloat(it.breadth),
+          qty: parseInt(it.qty, 10) || 1,
+          design: it.design,
+        })),
+      });
+      if (error) throw error;
+      const rows = (data as { order_no: string }[]) || [];
+      const orderNo = rows[0]?.order_no ?? "";
 
       resetForm();
       toast(
-        orderNos.length === 1
-          ? `Order ${orderNos[0]} placed and sent to the floor queue`
-          : `${orderNos.length} orders placed (${orderNos[0]} – ${orderNos[orderNos.length - 1]}) and sent to the floor queue`
+        rows.length === 1
+          ? `Order ${orderNo} placed and sent to the floor queue`
+          : `Order ${orderNo} placed with ${rows.length} items and sent to the floor queue`
       );
       router.push("/floor");
     } catch (e: any) {
