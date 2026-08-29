@@ -5,12 +5,14 @@ const LABEL: Record<OrderStatus, string> = {
   in_progress: "In Progress",
   completed: "Completed",
   dispatched: "Dispatched",
+  cancelled: "Cancelled",
 };
 const CLASS: Record<OrderStatus, string> = {
   pending: "bn",
   in_progress: "ba",
   completed: "bg",
   dispatched: "bp",
+  cancelled: "br",
 };
 
 export default function StatusBadge({ status }: { status: OrderStatus }) {
@@ -22,5 +24,6 @@ export const STATUS_COLOR: Record<OrderStatus, string> = {
   in_progress: "#854F0B",
   completed: "#3B6D11",
   dispatched: "#3C3489",
+  cancelled: "#A32D2D",
 };
 export const STATUS_LABEL = LABEL;

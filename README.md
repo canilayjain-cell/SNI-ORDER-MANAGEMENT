@@ -107,13 +107,23 @@ role itself. Editing the browser's JavaScript cannot bypass this.
   buckets for simplicity — anyone with the exact (random, unguessable) file
   URL can view it, but nothing is publicly listed or browsable. Only
   sales/admin can upload to the first, only factory/admin to the second.
-- **Order numbers**: assigned atomically by a Postgres sequence inside the
-  `place_order_multi()` function (format `SNI / 26-27 / 001`, financial year
-  Apr–Mar) — no race condition between two people saving orders at once.
-  One submission gets one order number; if it has several items they share
-  that number and each becomes its own row (`line_no` / `line_count`, shown
-  as `… · item 2/3`) so the floor can start, complete and dispatch each
-  item independently.
+- **Order numbers**: assigned atomically inside `place_order_multi()` from a
+  per-financial-year counter (`order_counters`), format `SNI / 26-27 / 001`.
+  The financial year runs Apr–Mar, and the serial resets to `001` every
+  April (2027-28 starts fresh). No race condition between two people saving
+  at once. One submission gets one order number; if it has several items
+  they share that number and each becomes its own row (`line_no` /
+  `line_count`, shown as `… · item 2/3`) so the floor can start, complete
+  and dispatch each item independently.
+- **Order placed by**: every order records the salesperson who placed it,
+  chosen from an admin-managed list (`option_lists`, type `salesperson`,
+  edited under Manage lists).
+- **Cancellation**: factory/sales/admin can cancel a `pending` /
+  `in_progress` order from the floor queue via `cancel_order()`; a reason is
+  mandatory and is stored on the order (`cancel_reason`) and in its history.
+- **Schema upgrades**: `supabase/schema.sql` is the fresh-install schema.
+  Existing databases apply `supabase/migration-001.sql` then
+  `migration-002.sql` (both idempotent).
 - **Middleware** (`middleware.ts`) refreshes the Supabase session on every
   request and redirects signed-out users to `/login`, and redirects a
   signed-in user away from any tab their role can't reach.

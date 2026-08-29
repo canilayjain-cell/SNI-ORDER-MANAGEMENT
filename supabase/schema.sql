@@ -65,12 +65,12 @@ create policy "profiles: admin updates role" on public.profiles
   for update using (public.is_admin()) with check (public.is_admin());
 
 -- ============================================================================
--- 2. OPTION LISTS  (thickness / panel / party dropdowns)
+-- 2. OPTION LISTS  (thickness / panel / party / salesperson dropdowns)
 -- ============================================================================
 
 create table public.option_lists (
   id uuid primary key default gen_random_uuid(),
-  list_type text not null check (list_type in ('thick','panel','party')),
+  list_type text not null check (list_type in ('thick','panel','party','salesperson')),
   value text not null,
   created_at timestamptz not null default now(),
   unique (list_type, value)
@@ -93,7 +93,15 @@ create policy "lists: sales can add party" on public.option_lists
 -- 3. ORDERS
 -- ============================================================================
 
-create sequence public.order_serial_seq start 1;
+-- Per-financial-year order counter. The order serial resets to 1 every April
+-- (financial year runs Apr–Mar), so 2026-27 numbers 001.. and 2027-28 starts
+-- again at 001. One row per FY, incremented atomically inside place_order_multi.
+create table public.order_counters (
+  fy text primary key,
+  last_serial integer not null default 0
+);
+alter table public.order_counters enable row level security;
+-- no policies: only the security-definer RPC touches this table
 
 create table public.orders (
   id uuid primary key default gen_random_uuid(),
@@ -104,6 +112,7 @@ create table public.orders (
   line_count integer not null default 1,
   serial_num integer not null,
   party text not null,
+  placed_by text,
   thick text not null,
   panel text not null,
   length_mm numeric not null,
@@ -116,14 +125,16 @@ create table public.orders (
   reminder_days integer not null default 2,
   reminder_date date,
   notes text,
-  status text not null default 'pending' check (status in ('pending','in_progress','completed','dispatched')),
+  status text not null default 'pending' check (status in ('pending','in_progress','completed','dispatched','cancelled')),
   sequence integer not null default 0,
   dispatch_photo_url text,
+  cancel_reason text,
   created_by uuid references public.profiles(id),
   created_at timestamptz not null default now(),
   in_progress_at timestamptz,
   completed_at timestamptz,
-  dispatched_at timestamptz
+  dispatched_at timestamptz,
+  cancelled_at timestamptz
 );
 
 create index orders_status_idx on public.orders(status);
@@ -188,73 +199,12 @@ create policy "order_photos: admin inserts" on public.order_photos
 -- 4. RPC FUNCTIONS — the actual workflow actions, role-checked server-side
 -- ============================================================================
 
--- place a new order (sales or admin)
-create or replace function public.place_order(
-  p_party text, p_thick text, p_panel text,
-  p_length numeric, p_breadth numeric, p_qty integer,
-  p_design text, p_delivery date, p_reminder_days integer,
-  p_notes text, p_photo_urls text[]
-)
-returns public.orders
-language plpgsql security definer set search_path = public
-as $$
-declare
-  v_serial integer;
-  v_fy text;
-  v_order_no text;
-  v_area numeric;
-  v_total numeric;
-  v_seq integer;
-  v_order public.orders;
-  v_photo text;
-  v_month integer := extract(month from now())::int;
-  v_year integer := extract(year from now())::int;
-  v_fy_start integer;
-begin
-  if public.current_role() not in ('sales','admin') then
-    raise exception 'Only sales or admin accounts can place orders';
-  end if;
-
-  v_fy_start := case when v_month >= 4 then v_year else v_year - 1 end;
-  v_fy := lpad((v_fy_start % 100)::text, 2, '0') || '-' || lpad(((v_fy_start + 1) % 100)::text, 2, '0');
-
-  v_serial := nextval('public.order_serial_seq');
-  v_order_no := 'SNI / ' || v_fy || ' / ' || lpad(v_serial::text, 3, '0');
-
-  v_area := (p_length * p_breadth) / 92903.0;
-  v_total := v_area * p_qty;
-
-  select coalesce(max(sequence), 0) + 1 into v_seq
-    from public.orders where status in ('pending','in_progress');
-
-  insert into public.orders (
-    order_no, serial_num, party, thick, panel, length_mm, breadth_mm, qty,
-    area_sqft, total_sqft, design, delivery_date, reminder_days, reminder_date,
-    notes, status, sequence, created_by
-  ) values (
-    v_order_no, v_serial, p_party, p_thick, p_panel, p_length, p_breadth, p_qty,
-    v_area, v_total, p_design, p_delivery, p_reminder_days, p_delivery - p_reminder_days,
-    p_notes, 'pending', v_seq, auth.uid()
-  ) returning * into v_order;
-
-  insert into public.order_history (order_id, status, changed_by) values (v_order.id, 'pending', auth.uid());
-
-  if p_photo_urls is not null then
-    foreach v_photo in array p_photo_urls loop
-      insert into public.order_photos (order_id, url) values (v_order.id, v_photo);
-    end loop;
-  end if;
-
-  return v_order;
-end;
-$$;
-
 -- place a new order with one or more items (sales or admin).
 -- All items share a single order_no / serial_num; each becomes its own row
 -- so the floor can Start/Complete/Dispatch items independently.
 -- p_items is a JSON array: [{ "thick", "panel", "length", "breadth", "qty", "design" }, ...]
 create or replace function public.place_order_multi(
-  p_party text, p_delivery date, p_reminder_days integer,
+  p_party text, p_placed_by text, p_delivery date, p_reminder_days integer,
   p_notes text, p_photo_urls text[], p_items jsonb
 )
 returns setof public.orders
@@ -291,7 +241,10 @@ begin
   v_fy_start := case when v_month >= 4 then v_year else v_year - 1 end;
   v_fy := lpad((v_fy_start % 100)::text, 2, '0') || '-' || lpad(((v_fy_start + 1) % 100)::text, 2, '0');
 
-  v_serial := nextval('public.order_serial_seq');
+  -- atomically bump this financial year's counter (starts at 1 each new FY)
+  insert into public.order_counters (fy, last_serial) values (v_fy, 1)
+    on conflict (fy) do update set last_serial = order_counters.last_serial + 1
+    returning last_serial into v_serial;
   v_order_no := 'SNI / ' || v_fy || ' / ' || lpad(v_serial::text, 3, '0');
 
   select coalesce(max(sequence), 0) into v_seq_base
@@ -307,11 +260,11 @@ begin
     v_total := v_area * v_qty;
 
     insert into public.orders (
-      order_no, line_no, line_count, serial_num, party, thick, panel,
+      order_no, line_no, line_count, serial_num, party, placed_by, thick, panel,
       length_mm, breadth_mm, qty, area_sqft, total_sqft, design,
       delivery_date, reminder_days, reminder_date, notes, status, sequence, created_by
     ) values (
-      v_order_no, v_idx, v_line_count, v_serial, p_party,
+      v_order_no, v_idx, v_line_count, v_serial, p_party, nullif(btrim(p_placed_by), ''),
       v_item->>'thick', v_item->>'panel', v_length, v_breadth, v_qty,
       v_area, v_total, coalesce(v_item->>'design', '2D'),
       p_delivery, p_reminder_days, p_delivery - p_reminder_days,
@@ -329,6 +282,35 @@ begin
 
     return next v_order;
   end loop;
+end;
+$$;
+
+-- floor: cancel an order that is still in the active queue (pending / in_progress).
+-- A reason is mandatory and is kept on the order + in its history.
+create or replace function public.cancel_order(p_order_id uuid, p_reason text)
+returns public.orders
+language plpgsql security definer set search_path = public
+as $$
+declare v_order public.orders;
+begin
+  if public.current_role() not in ('sales','factory','admin') then
+    raise exception 'Not allowed to cancel orders';
+  end if;
+  if p_reason is null or btrim(p_reason) = '' then
+    raise exception 'A cancellation reason is required';
+  end if;
+
+  update public.orders
+     set status = 'cancelled', cancelled_at = now(), cancel_reason = btrim(p_reason)
+   where id = p_order_id and status in ('pending','in_progress')
+   returning * into v_order;
+
+  if v_order.id is null then
+    raise exception 'Order not found, or it can no longer be cancelled at its current stage';
+  end if;
+
+  insert into public.order_history (order_id, status, changed_by) values (p_order_id, 'cancelled', auth.uid());
+  return v_order;
 end;
 $$;
 
@@ -496,8 +478,8 @@ grant execute on function public.current_role() to authenticated;
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.is_factory_or_admin() to authenticated;
 grant execute on function public.is_sales_or_admin() to authenticated;
-grant execute on function public.place_order(text,text,text,numeric,numeric,integer,text,date,integer,text,text[]) to authenticated;
-grant execute on function public.place_order_multi(text,date,integer,text,text[],jsonb) to authenticated;
+grant execute on function public.place_order_multi(text,text,date,integer,text,text[],jsonb) to authenticated;
+grant execute on function public.cancel_order(uuid,text) to authenticated;
 grant execute on function public.start_order(uuid) to authenticated;
 grant execute on function public.complete_order(uuid) to authenticated;
 grant execute on function public.set_dispatch_photo(uuid,text) to authenticated;
@@ -505,15 +487,16 @@ grant execute on function public.confirm_dispatch(uuid) to authenticated;
 grant execute on function public.resequence_order(uuid,text) to authenticated;
 
 -- ============================================================================
--- MIGRATION — run this block ONLY on a database created before multi-item
--- orders existed. On a fresh run of this file it is a harmless no-op.
+-- UPGRADING AN EXISTING DATABASE
+-- This file is the full schema for a FRESH project. If your database was
+-- created from an earlier version, do NOT re-run this whole file — run the
+-- incremental migration scripts instead, in order:
+--
+--   supabase/migration-001.sql   -- multi-item orders (line_no / line_count)
+--   supabase/migration-002.sql   -- per-FY numbering, salesperson, cancellation
+--
+-- Each is idempotent (safe to run more than once).
 -- ============================================================================
-
-alter table public.orders add column if not exists line_no integer not null default 1;
-alter table public.orders add column if not exists line_count integer not null default 1;
-alter table public.orders drop constraint if exists orders_order_no_key;
-create unique index if not exists orders_order_no_line_idx on public.orders(order_no, line_no);
-create index if not exists orders_order_no_idx on public.orders(order_no);
 
 -- ============================================================================
 -- Done. Next: create your first login (Authentication > Add user in the

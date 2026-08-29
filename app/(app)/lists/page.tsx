@@ -9,8 +9,9 @@ export default function ManageListsPage() {
   const [inThick, setInThick] = useState("");
   const [inPanel, setInPanel] = useState("");
   const [inParty, setInParty] = useState("");
+  const [inSales, setInSales] = useState("");
 
-  async function handleAdd(type: "thick" | "panel" | "party", value: string, clear: () => void) {
+  async function handleAdd(type: "thick" | "panel" | "party" | "salesperson", value: string, clear: () => void) {
     const v = value.trim();
     if (!v) return;
     const err = await addOption(type, v);
@@ -28,6 +29,7 @@ export default function ManageListsPage() {
   const thickRows = rows.filter((r) => r.list_type === "thick");
   const panelRows = rows.filter((r) => r.list_type === "panel");
   const partyRows = rows.filter((r) => r.list_type === "party");
+  const salesRows = rows.filter((r) => r.list_type === "salesperson");
 
   return (
     <div className="page-inner">
@@ -46,6 +48,14 @@ export default function ManageListsPage() {
           <div className="add-row">
             <input type="text" placeholder="e.g. Sunboard" value={inPanel} onChange={(e) => setInPanel(e.target.value)} />
             <button className="btn btn-sm btn-primary" onClick={() => handleAdd("panel", inPanel, () => setInPanel(""))}>Add</button>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-head">Salespeople (order placed by)</div>
+          <ListBlock rows={salesRows} onRemove={handleRemove} />
+          <div className="add-row">
+            <input type="text" placeholder="e.g. Ramesh" value={inSales} onChange={(e) => setInSales(e.target.value)} />
+            <button className="btn btn-sm btn-primary" onClick={() => handleAdd("salesperson", inSales, () => setInSales(""))}>Add</button>
           </div>
         </div>
         <div className="card" style={{ gridColumn: "1/-1" }}>

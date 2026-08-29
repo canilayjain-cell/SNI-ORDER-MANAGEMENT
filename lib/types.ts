@@ -1,5 +1,5 @@
 export type Role = "admin" | "factory" | "sales";
-export type OrderStatus = "pending" | "in_progress" | "completed" | "dispatched";
+export type OrderStatus = "pending" | "in_progress" | "completed" | "dispatched" | "cancelled";
 
 export interface Profile {
   id: string;
@@ -23,6 +23,7 @@ export interface Order {
   line_count: number;
   serial_num: number;
   party: string;
+  placed_by: string | null;
   thick: string;
   panel: string;
   length_mm: number;
@@ -38,18 +39,20 @@ export interface Order {
   status: OrderStatus;
   sequence: number;
   dispatch_photo_url: string | null;
+  cancel_reason: string | null;
   created_by: string | null;
   created_at: string;
   in_progress_at: string | null;
   completed_at: string | null;
   dispatched_at: string | null;
+  cancelled_at: string | null;
   order_photos?: OrderPhoto[];
   photos?: string[];
 }
 
 export interface OptionRow {
   id: string;
-  list_type: "thick" | "panel" | "party";
+  list_type: "thick" | "panel" | "party" | "salesperson";
   value: string;
   created_at: string;
 }

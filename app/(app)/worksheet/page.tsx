@@ -36,7 +36,7 @@ export default function WorksheetPage() {
   }, [orders, fParty, fStatus, fDesign, fSearch]);
 
   const counts = useMemo(() => {
-    const c: Record<OrderStatus, number> = { pending: 0, in_progress: 0, completed: 0, dispatched: 0 };
+    const c: Record<OrderStatus, number> = { pending: 0, in_progress: 0, completed: 0, dispatched: 0, cancelled: 0 };
     orders.forEach((o) => { c[o.status]++; });
     return c;
   }, [orders]);
@@ -69,16 +69,17 @@ export default function WorksheetPage() {
 
   function exportCSV() {
     if (!orders.length) { toast("No orders to export"); return; }
-    const header = ["Order No", "Item", "Order Date", "Party", "Thickness", "Panel", "Length(mm)", "Breadth(mm)", "Qty",
+    const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const header = ["Order No", "Item", "Order Date", "Party", "Placed By", "Thickness", "Panel", "Length(mm)", "Breadth(mm)", "Qty",
       "Total Area(sqft)", "Design", "Delivery", "Status", "In Progress At", "Completed At", "Dispatched At",
-      "Production Time", "Dispatch Lead Time", "Notes"];
+      "Production Time", "Dispatch Lead Time", "Cancelled At", "Cancel Reason", "Notes"];
     const rows = orders.map((o) => [
       o.order_no, o.line_count > 1 ? `${o.line_no}/${o.line_count}` : "",
-      fmtDate(o.created_at), o.party, o.thick, o.panel, o.length_mm, o.breadth_mm, o.qty,
+      fmtDate(o.created_at), q(o.party), q(o.placed_by), o.thick, o.panel, o.length_mm, o.breadth_mm, o.qty,
       o.total_sqft, o.design, fmtDate(o.delivery_date), STATUS_LABEL[o.status],
       fmtDateTime(o.in_progress_at), fmtDateTime(o.completed_at), fmtDateTime(o.dispatched_at),
       fmtDuration(o.in_progress_at, o.completed_at), fmtDuration(o.created_at, o.dispatched_at),
-      `"${(o.notes || "").replace(/"/g, '""')}"`,
+      fmtDateTime(o.cancelled_at), q(o.cancel_reason), q(o.notes),
     ].join(","));
     const blob = new Blob([[header.join(","), ...rows].join("\n")], { type: "text/csv" });
     const a = document.createElement("a");
@@ -117,6 +118,7 @@ export default function WorksheetPage() {
         <StatTile label="In progress" value={counts.in_progress} color={STATUS_COLOR.in_progress} />
         <StatTile label="Awaiting dispatch" value={counts.completed} color={STATUS_COLOR.completed} />
         <StatTile label="Dispatched" value={counts.dispatched} color={STATUS_COLOR.dispatched} />
+        <StatTile label="Cancelled" value={counts.cancelled} color={STATUS_COLOR.cancelled} />
         <StatTile label="Avg. production time" value={fmtHours(avgProd)} sub="In progress → Completed" />
         <StatTile label="Avg. dispatch lead time" value={fmtHours(avgDispatch)} sub="Order date → Dispatched" />
       </div>
@@ -145,6 +147,7 @@ export default function WorksheetPage() {
           <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
           <option value="dispatched">Dispatched</option>
+          <option value="cancelled">Cancelled</option>
         </select>
         <select value={fDesign} onChange={(e) => setFDesign(e.target.value)}>
           <option value="">All designs</option>
@@ -206,12 +209,12 @@ export default function WorksheetPage() {
                         </td>
                       )}
                       <td className="mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--g600)" }}>{orderLabel(o)}</td>
-                      <td>{o.party}</td>
+                      <td>{o.party}{o.placed_by && <><br /><span style={{ fontSize: 11, color: "var(--g600)" }}>by {o.placed_by}</span></>}</td>
                       <td style={{ fontSize: 12 }}>{o.panel}<br /><span style={{ color: "var(--g600)" }}>{o.thick}</span></td>
                       <td style={{ fontSize: 12 }}>{o.length_mm}×{o.breadth_mm} mm<br /><span style={{ color: "var(--g600)" }}>{o.total_sqft} sqft</span></td>
                       <td style={{ fontSize: 12, ...due.css }}>{fmtDate(o.delivery_date)}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "var(--g600)" }}>{due.label}</span></td>
                       <td><span className={`badge ${o.design === "3D" ? "bb" : "bt"}`}>{o.design}</span></td>
-                      <td><StatusBadge status={o.status} /></td>
+                      <td><StatusBadge status={o.status} />{o.status === "cancelled" && o.cancel_reason && <><br /><span style={{ fontSize: 11, color: "var(--red)" }} title={o.cancel_reason}>{o.cancel_reason}</span></>}</td>
                       <td className="mono" style={{ fontSize: 11.5 }}>{fmtDateTime(o.created_at)}</td>
                       <td className="mono" style={{ fontSize: 11.5 }}>{fmtDateTime(o.in_progress_at)}</td>
                       <td className="mono" style={{ fontSize: 11.5 }}>{fmtDateTime(o.completed_at)}</td>

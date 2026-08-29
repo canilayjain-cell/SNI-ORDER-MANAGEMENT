@@ -83,9 +83,30 @@ textarea{resize:vertical}
 .btn-primary:disabled{background:var(--g200);border-color:var(--g200);color:var(--g600)}
 .btn-teal{background:var(--teal);color:#fff;border-color:var(--teal)}
 .btn-teal:hover{background:#0a5744}
+.btn-danger{background:var(--white);color:var(--red);border-color:#E7B9B9}
+.btn-danger:hover{background:var(--red-lt);border-color:var(--red)}
 .btn-sm{padding:6px 12px;font-size:12px}
 .btn-group{display:flex;gap:10px;flex-wrap:wrap;padding-top:4px}
 .btn-icon{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+
+/* REQUIRED FIELD MARK */
+.req{color:var(--red);font-weight:600}
+
+/* SEGMENTED TOGGLE (mm / inches) */
+.seg{display:inline-flex;border:1px solid var(--g200);border-radius:var(--r-md);overflow:hidden;flex-shrink:0}
+.seg button{padding:6px 14px;font-size:12px;font-weight:600;border:none;background:var(--white);color:var(--g600);cursor:pointer;font-family:inherit;transition:all .15s}
+.seg button:hover:not(.active){background:var(--g100)}
+.seg button.active{background:var(--blue);color:#fff}
+.seg button + button{border-left:1px solid var(--g200)}
+
+/* TYPE-AHEAD COMBOBOX (party search) */
+.combo{position:relative}
+.combo-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--white);border:1px solid var(--g200);border-radius:var(--r-md);box-shadow:var(--shadow);max-height:220px;overflow-y:auto;z-index:60}
+.combo-opt{padding:8px 11px;font-size:13px;cursor:pointer;color:var(--g800)}
+.combo-opt:hover{background:var(--blue-lt);color:var(--blue)}
+.combo-opt.create{color:var(--teal);font-weight:500;border-top:1px solid var(--g100)}
+.combo-opt.muted{color:var(--g400);cursor:default}
+.combo-opt.muted:hover{background:none}
 
 /* DESIGN TOGGLE */
 .design-cards{display:flex;gap:10px}
@@ -120,6 +141,7 @@ textarea{resize:vertical}
 .bg{background:var(--green-lt);color:var(--green)}
 .bp{background:var(--purple-lt);color:var(--purple)}
 .bn{background:var(--g100);color:var(--g600)}
+.br{background:var(--red-lt);color:var(--red)}
 
 /* KPI STAT GRID */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}

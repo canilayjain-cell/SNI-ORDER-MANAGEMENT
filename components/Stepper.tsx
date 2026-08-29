@@ -4,7 +4,7 @@ import { fmtDateTime } from "@/lib/format";
 import { STATUS_COLOR, STATUS_LABEL } from "@/components/StatusBadge";
 
 const SEQ: OrderStatus[] = ["pending", "in_progress", "completed", "dispatched"];
-const SHORT: Record<OrderStatus, string> = { pending: "PEND", in_progress: "PROG", completed: "DONE", dispatched: "DISP" };
+const SHORT: Record<OrderStatus, string> = { pending: "PEND", in_progress: "PROG", completed: "DONE", dispatched: "DISP", cancelled: "CXL" };
 
 export default function Stepper({ order }: { order: Order }) {
   const idx = SEQ.indexOf(order.status);
@@ -13,6 +13,7 @@ export default function Stepper({ order }: { order: Order }) {
     in_progress: order.in_progress_at,
     completed: order.completed_at,
     dispatched: order.dispatched_at,
+    cancelled: order.cancelled_at,
   };
   return (
     <div className="stepper">

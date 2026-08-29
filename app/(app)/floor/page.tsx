@@ -10,7 +10,7 @@ import StatusBadge from "@/components/StatusBadge";
 import Stepper from "@/components/Stepper";
 import { usePhotoViewer } from "@/components/PhotoViewer";
 import type { Order } from "@/lib/types";
-import { ArrowUp, ArrowDown, Clock, CheckCircle2, Package, RefreshCw, ClipboardList } from "lucide-react";
+import { ArrowUp, ArrowDown, Clock, CheckCircle2, Package, RefreshCw, ClipboardList, XCircle } from "lucide-react";
 
 export default function FloorQueuePage() {
   const { orders, reload } = useOrders();
@@ -41,6 +41,15 @@ export default function FloorQueuePage() {
   async function move(id: string, dir: "up" | "down") {
     const { error } = await supabase.rpc("resequence_order", { p_order_id: id, p_direction: dir });
     if (error) { toast("Could not reorder: " + error.message); return; }
+    reload();
+  }
+  async function cancelOrder(id: string, orderNo: string) {
+    const reason = window.prompt(`Cancel ${orderNo}?\n\nEnter the reason for cancelling this order:`);
+    if (reason === null) return; // dialog dismissed
+    if (!reason.trim()) { toast("A cancellation reason is required"); return; }
+    const { error } = await supabase.rpc("cancel_order", { p_order_id: id, p_reason: reason.trim() });
+    if (error) { toast("Could not cancel order: " + error.message); return; }
+    toast(`${orderNo} cancelled`);
     reload();
   }
 
@@ -76,6 +85,7 @@ export default function FloorQueuePage() {
               onStart={startOrder}
               onComplete={completeOrder}
               onMove={move}
+              onCancel={cancelOrder}
               onViewPhotos={open}
             />
           ))}
@@ -87,7 +97,7 @@ export default function FloorQueuePage() {
 }
 
 function FloorTicket({
-  order, isFirst, isLast, canAct, onStart, onComplete, onMove, onViewPhotos,
+  order, isFirst, isLast, canAct, onStart, onComplete, onMove, onCancel, onViewPhotos,
 }: {
   order: Order;
   isFirst: boolean;
@@ -96,6 +106,7 @@ function FloorTicket({
   onStart: (id: string) => void;
   onComplete: (id: string) => void;
   onMove: (id: string, dir: "up" | "down") => void;
+  onCancel: (id: string, orderNo: string) => void;
   onViewPhotos: (photos: string[] | undefined) => void;
 }) {
   const due = deliveryDueInfo(order.delivery_date);
@@ -114,6 +125,7 @@ function FloorTicket({
           <StatusBadge status={order.status} />
         </div>
         <div className="ticket-title">{order.party}</div>
+        {order.placed_by && <div className="ticket-meta">Placed by {order.placed_by}</div>}
         <div className="ticket-sub">
           {order.panel} · {order.thick} · {order.length_mm}×{order.breadth_mm} mm · Qty {order.qty}{" "}
           <span className={`badge ${order.design === "3D" ? "bb" : "bt"}`} style={{ marginLeft: 2 }}>{order.design}</span>
@@ -143,6 +155,11 @@ function FloorTicket({
         {canAct && order.status === "in_progress" && (
           <button className="btn btn-sm btn-primary" onClick={() => onComplete(order.id)}>
             <CheckCircle2 size={13} /> Mark completed
+          </button>
+        )}
+        {canAct && (
+          <button className="btn btn-sm btn-danger" onClick={() => onCancel(order.id, order.order_no)}>
+            <XCircle size={13} /> Cancel order
           </button>
         )}
         {!canAct && <span className="view-only-note">View only</span>}
