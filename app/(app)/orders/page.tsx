@@ -11,7 +11,7 @@ import { Camera, ImagePlus, Save, RotateCcw, X, Plus, Trash2 } from "lucide-reac
 
 interface FormPhoto { blob: Blob; previewUrl: string }
 
-type Unit = "mm" | "in";
+type Unit = "mm" | "in" | "ft";
 
 interface OrderItem {
   thick: string;
@@ -24,15 +24,20 @@ interface OrderItem {
 }
 
 const IN_TO_MM = 25.4;
+const FT_TO_MM = 304.8;
 // 1 sq ft = 92903.04 sq mm
 const SQMM_PER_SQFT = 92903.04;
+
+const UNIT_LABEL: Record<Unit, string> = { mm: "mm", in: "in", ft: "ft" };
 
 const blankItem = (): OrderItem => ({ thick: "", panel: "", length: "", breadth: "", qty: "1", unit: "mm", design: "2D" });
 
 // Read a length input in the item's chosen unit and return it in millimetres.
 function toMm(value: string, unit: Unit): number {
   const n = parseFloat(value) || 0;
-  return unit === "in" ? n * IN_TO_MM : n;
+  if (unit === "in") return n * IN_TO_MM;
+  if (unit === "ft") return n * FT_TO_MM;
+  return n;
 }
 
 function itemSizeInfo(item: OrderItem) {
@@ -44,7 +49,7 @@ function itemSizeInfo(item: OrderItem) {
     return {
       show: true,
       sizeMm: `${lmm.toFixed(1)} × ${bmm.toFixed(1)} mm`,
-      entered: item.unit === "in" ? `${item.length} × ${item.breadth} in` : null,
+      entered: item.unit !== "mm" ? `${item.length} × ${item.breadth} ${UNIT_LABEL[item.unit]}` : null,
       each: `${area.toFixed(3)} sqft`,
       total: `${(area * q).toFixed(3)} sqft`,
     };
@@ -264,7 +269,7 @@ export default function NewOrderPage() {
 
       {items.map((it, idx) => {
         const si = itemSizeInfo(it);
-        const unitLabel = it.unit === "in" ? "in" : "mm";
+        const unitLabel = UNIT_LABEL[it.unit];
         return (
           <div className="card" key={idx}>
             <div className="card-head">
@@ -303,6 +308,7 @@ export default function NewOrderPage() {
               <div className="seg">
                 <button type="button" className={it.unit === "mm" ? "active" : ""} onClick={() => updateItem(idx, { unit: "mm" })}>MM</button>
                 <button type="button" className={it.unit === "in" ? "active" : ""} onClick={() => updateItem(idx, { unit: "in" })}>Inches</button>
+                <button type="button" className={it.unit === "ft" ? "active" : ""} onClick={() => updateItem(idx, { unit: "ft" })}>Ft</button>
               </div>
             </div>
 
