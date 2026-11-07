@@ -125,7 +125,11 @@ function FloorTicket({
           <StatusBadge status={order.status} />
         </div>
         <div className="ticket-title">{order.party}</div>
-        {order.placed_by && <div className="ticket-meta">Placed by {order.placed_by}</div>}
+        {(order.placed_by || order.assigned_to_name) && (
+          <div className="ticket-meta">
+            {[order.placed_by && `Placed by ${order.placed_by}`, order.assigned_to_name && `Given to ${order.assigned_to_name}`].filter(Boolean).join(" · ")}
+          </div>
+        )}
         <div className="ticket-sub">
           {order.panel} · {order.thick} · {order.length_mm}×{order.breadth_mm} mm · Qty {order.qty}{" "}
           <span className={`badge ${order.design === "3D" ? "bb" : "bt"}`} style={{ marginLeft: 2 }}>{order.design}</span>

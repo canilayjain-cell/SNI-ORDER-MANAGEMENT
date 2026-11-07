@@ -125,7 +125,9 @@ function DispatchTicket({
         </div>
         <div className="ticket-title">{order.party}</div>
         <div className="ticket-sub">{order.panel} · {order.thick} · {order.length_mm}×{order.breadth_mm} mm · Qty {order.qty}</div>
-        <div className="ticket-meta">Completed {fmtDateTime(order.completed_at)}</div>
+        <div className="ticket-meta">
+          Completed {fmtDateTime(order.completed_at)}{order.assigned_to_name && ` · Given to ${order.assigned_to_name}`}
+        </div>
         <Stepper order={order} />
       </div>
       <div className="ticket-actions dispatch-actions">

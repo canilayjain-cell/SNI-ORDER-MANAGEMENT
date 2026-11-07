@@ -7,16 +7,25 @@ export const ROLE_ROUTES: Record<Role, string[]> = {
   admin: ["/orders", "/floor", "/dispatch", "/worksheet", "/lists", "/users"],
   factory: ["/floor", "/dispatch"],
   sales: ["/orders", "/floor", "/worksheet"],
+  floor_manager: ["/floor", "/dispatch"],
 };
 
 export const DEFAULT_ROUTE: Record<Role, string> = {
   admin: "/orders",
   factory: "/floor",
   sales: "/orders",
+  floor_manager: "/floor",
+};
+
+export const ROLE_LABEL: Record<Role, string> = {
+  admin: "Admin",
+  factory: "Factory",
+  sales: "Sales",
+  floor_manager: "Floor manager",
 };
 
 export function canWorkFloor(role: Role): boolean {
-  return role === "factory" || role === "admin";
+  return role === "factory" || role === "floor_manager" || role === "admin";
 }
 
 export function canExport(role: Role): boolean {

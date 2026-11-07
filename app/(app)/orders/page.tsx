@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useOptionLists } from "@/lib/hooks/useOptionLists";
 import { resizeImageToBlob } from "@/lib/image";
@@ -8,6 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, Save, RotateCcw, X, Plus, Trash2 } from "lucide-react";
+import type { FloorManager } from "@/lib/types";
 
 interface FormPhoto { blob: Blob; previewUrl: string }
 
@@ -66,6 +67,8 @@ export default function NewOrderPage() {
   const [party, setParty] = useState("");
   const [partyOpen, setPartyOpen] = useState(false);
   const [placedBy, setPlacedBy] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
+  const [floorManagers, setFloorManagers] = useState<FloorManager[]>([]);
   const [items, setItems] = useState<OrderItem[]>([blankItem()]);
   const [delivery, setDelivery] = useState("");
   const [reminderDays, setReminderDays] = useState("2");
@@ -77,6 +80,16 @@ export default function NewOrderPage() {
     () => new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
     []
   );
+
+  // floor managers are logins (profiles with role 'floor_manager'); sales
+  // accounts can't read profiles directly, so this goes through an RPC
+  useEffect(() => {
+    supabase.rpc("list_floor_managers").then(({ data, error }) => {
+      if (error) { toast("Could not load floor managers: " + error.message); return; }
+      setFloorManagers((data as FloorManager[]) || []);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const partyQuery = party.trim().toLowerCase();
   const partyMatches = useMemo(
@@ -121,7 +134,7 @@ export default function NewOrderPage() {
   }
 
   function resetForm() {
-    setParty(""); setPartyOpen(false); setPlacedBy(""); setItems([blankItem()]); setDelivery(""); setReminderDays("2");
+    setParty(""); setPartyOpen(false); setPlacedBy(""); setAssignedTo(""); setItems([blankItem()]); setDelivery(""); setReminderDays("2");
     setNotes(""); setPhotos([]);
   }
 
@@ -129,6 +142,7 @@ export default function NewOrderPage() {
     const partyName = party.trim();
     if (!partyName) { alert("Please enter a party name."); return; }
     if (!placedBy) { alert("Please select who placed this order."); return; }
+    if (!assignedTo) { alert("Please select the floor manager this order is given to."); return; }
 
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
@@ -166,6 +180,7 @@ export default function NewOrderPage() {
       const { data, error } = await supabase.rpc("place_order_multi", {
         p_party: finalParty,
         p_placed_by: placedBy,
+        p_assigned_to: assignedTo,
         p_delivery: delivery,
         p_reminder_days: parseInt(reminderDays, 10),
         p_notes: notes.trim(),
@@ -215,7 +230,7 @@ export default function NewOrderPage() {
 
       <div className="card">
         <div className="card-head">Party &amp; order details</div>
-        <div className="g2">
+        <div className="g3">
           <div className="field combo">
             <label>Party <span className="req">*</span></label>
             <input
@@ -262,6 +277,16 @@ export default function NewOrderPage() {
             </select>
             {salespersonOpts.length === 0 && (
               <span className="field-hint">No salespeople added yet — an admin can add them under Manage lists.</span>
+            )}
+          </div>
+          <div className="field">
+            <label>Order given to <span className="req">*</span></label>
+            <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+              <option value="">Select floor manager…</option>
+              {floorManagers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+            {floorManagers.length === 0 && (
+              <span className="field-hint">No floor managers yet — an admin can set a login&apos;s role to Floor manager under Manage users.</span>
             )}
           </div>
         </div>

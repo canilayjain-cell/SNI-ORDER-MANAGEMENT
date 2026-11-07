@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/lib/types";
 import { Package } from "lucide-react";
+import { ROLE_LABEL } from "@/lib/roles";
 
 export default function Nav({ profile }: { profile: Profile }) {
   const router = useRouter();
@@ -25,7 +26,7 @@ export default function Nav({ profile }: { profile: Profile }) {
         <div className="user-block">
           <div className="user-id">
             <div className="user-name">{profile.full_name || profile.email}</div>
-            <div className="user-role">{profile.role}</div>
+            <div className="user-role">{ROLE_LABEL[profile.role] ?? profile.role}</div>
           </div>
           <button className="btn btn-sm" onClick={signOut}>
             Sign out

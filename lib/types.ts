@@ -1,4 +1,4 @@
-export type Role = "admin" | "factory" | "sales";
+export type Role = "admin" | "factory" | "sales" | "floor_manager";
 export type OrderStatus = "pending" | "in_progress" | "completed" | "dispatched" | "cancelled";
 
 export interface Profile {
@@ -24,6 +24,8 @@ export interface Order {
   serial_num: number;
   party: string;
   placed_by: string | null;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
   thick: string;
   panel: string;
   length_mm: number;
@@ -55,4 +57,9 @@ export interface OptionRow {
   list_type: "thick" | "panel" | "party" | "salesperson";
   value: string;
   created_at: string;
+}
+
+export interface FloorManager {
+  id: string;
+  name: string;
 }
