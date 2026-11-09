@@ -33,7 +33,7 @@ const SQMM_PER_SQFT = 92903.04;
 
 const UNIT_LABEL: Record<Unit, string> = { mm: "mm", in: "in", ft: "ft" };
 
-const blankItem = (): OrderItem => ({ thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "mm", design: "2D" });
+const blankItem = (): OrderItem => ({ thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
 
 // Read a length input in the item's chosen unit and return it in millimetres.
 function toMm(value: string, unit: Unit): number {
