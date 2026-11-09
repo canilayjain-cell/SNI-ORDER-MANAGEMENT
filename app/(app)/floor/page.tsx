@@ -5,7 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/lib/toast";
 import { fromMm } from "@/lib/units";
-import { canEditOrders, canWorkFloor } from "@/lib/roles";
+import { canCancelOrders, canEditOrders, canWorkFloor } from "@/lib/roles";
 import { deliveryDueInfo, fmtDate, orderLabel } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import Stepper from "@/components/Stepper";
@@ -26,6 +26,7 @@ export default function FloorQueuePage() {
 
   const canAct = profile ? canWorkFloor(profile.role) : false;
   const canEdit = profile ? canEditOrders(profile.role) : false;
+  const canCancel = profile ? canCancelOrders(profile.role) : false;
   const [editing, setEditing] = useState<Order | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("queue");
   const [party, setParty] = useState("");
@@ -165,6 +166,7 @@ export default function FloorQueuePage() {
               canAct={canAct}
               canReorder={canReorder}
               canEdit={canEdit}
+              canCancel={canCancel}
               onEdit={setEditing}
               onStart={startOrder}
               onComplete={completeOrder}
@@ -182,7 +184,7 @@ export default function FloorQueuePage() {
 }
 
 function FloorTicket({
-  order, isFirst, isLast, canAct, canReorder, canEdit, onEdit, onStart, onComplete, onMove, onCancel, onViewPhotos,
+  order, isFirst, isLast, canAct, canReorder, canEdit, canCancel, onEdit, onStart, onComplete, onMove, onCancel, onViewPhotos,
 }: {
   order: Order;
   isFirst: boolean;
@@ -190,6 +192,7 @@ function FloorTicket({
   canAct: boolean;
   canReorder: boolean;
   canEdit: boolean;
+  canCancel: boolean;
   onEdit: (order: Order) => void;
   onStart: (id: string) => void;
   onComplete: (id: string) => void;
@@ -254,7 +257,7 @@ function FloorTicket({
             <Pencil size={13} /> Edit
           </button>
         )}
-        {canAct && (
+        {canCancel && (
           <button className="btn btn-sm btn-danger" onClick={() => onCancel(order.id, order.order_no)}>
             <XCircle size={13} /> Cancel order
           </button>
