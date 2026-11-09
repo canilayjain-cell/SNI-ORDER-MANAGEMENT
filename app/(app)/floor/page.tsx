@@ -5,7 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/lib/toast";
 import { fromMm, UNIT_LABEL, type Unit } from "@/lib/units";
-import { canCancelOrders, canEditOrders, canWorkFloor } from "@/lib/roles";
+import { canCancelOrders, canEditOrders, canSortByGivenTo, canWorkFloor } from "@/lib/roles";
 import { deliveryDueInfo, fmtDate, orderLabel } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import Stepper from "@/components/Stepper";
@@ -14,7 +14,7 @@ import EditOrderItem from "@/components/EditOrderItem";
 import type { Order } from "@/lib/types";
 import { ArrowUp, ArrowDown, Clock, CheckCircle2, Package, RefreshCw, ClipboardList, XCircle, Search, X, Pencil, Undo2 } from "lucide-react";
 
-type SortBy = "queue" | "order_new" | "order_old" | "delivery_soon" | "delivery_late";
+type SortBy = "queue" | "order_new" | "order_old" | "delivery_soon" | "delivery_late" | "given_to";
 
 const time = (d: string | null) => new Date(d || 0).getTime();
 
@@ -55,6 +55,8 @@ export default function FloorQueuePage() {
     if (sortBy === "order_old") rows.sort((a, b) => time(a.created_at) - time(b.created_at));
     if (sortBy === "delivery_soon") rows.sort((a, b) => time(a.delivery_date) - time(b.delivery_date));
     if (sortBy === "delivery_late") rows.sort((a, b) => time(b.delivery_date) - time(a.delivery_date));
+    // unassigned items go last
+    if (sortBy === "given_to") rows.sort((a, b) => Number(!a.assigned_to_name) - Number(!b.assigned_to_name) || (a.assigned_to_name ?? "").localeCompare(b.assigned_to_name ?? ""));
     return rows;
   }, [queue, partyQuery, sortBy]);
 
@@ -113,6 +115,7 @@ export default function FloorQueuePage() {
             <option value="order_old">Order date: oldest first</option>
             <option value="delivery_late">Delivery date: latest first</option>
             <option value="delivery_soon">Delivery date: soonest first</option>
+            {profile && canSortByGivenTo(profile.role) && <option value="given_to">Assigned to</option>}
           </select>
           <div style={{ position: "relative" }}>
             <button className="btn btn-sm" onClick={() => setPartyOpen((v) => !v)}>
@@ -233,7 +236,7 @@ function FloorTicket({
         <div className="ticket-title">{order.party}</div>
         {(order.placed_by || order.assigned_to_name) && (
           <div className="ticket-meta">
-            {[order.placed_by && `Placed by ${order.placed_by}`, order.assigned_to_name && `Given to ${order.assigned_to_name}`].filter(Boolean).join(" · ")}
+            {[order.placed_by && `Placed by ${order.placed_by}`, order.assigned_to_name && `Assigned to ${order.assigned_to_name}`].filter(Boolean).join(" · ")}
           </div>
         )}
         <div className="ticket-sub">

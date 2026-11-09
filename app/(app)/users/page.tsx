@@ -29,7 +29,7 @@ export default function ManageUsersPage() {
     load();
   }
 
-  // the display name is what shows in "Order given to" and on every order
+  // the display name is what shows in "Assigned to" and on every order
   async function changeName(u: Profile, name: string) {
     const v = name.trim();
     if (!v || v === (u.full_name || "")) return;
@@ -47,7 +47,7 @@ export default function ManageUsersPage() {
           New accounts are created in the Supabase dashboard (Authentication → Add user). Assign their role here
           once they appear in this list — new accounts default to Sales until you change it.
           Set a floor manager&apos;s role to <b>Floor manager</b> and give them a name — they then appear in
-          &ldquo;Order given to&rdquo; on New order, and see only the orders given to them.
+          &ldquo;Assigned to&rdquo; on New order, and see only the orders assigned to them.
         </p>
         {loading ? (
           <div className="mgr-empty">Loading...</div>

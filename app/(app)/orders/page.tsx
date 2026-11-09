@@ -139,7 +139,7 @@ export default function NewOrderPage() {
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       const tag = items.length > 1 ? ` for item ${i + 1}` : "";
-      if (!it.assignedTo) { alert(`Please select the floor manager this is given to${tag}.`); return; }
+      if (!it.assignedTo) { alert(`Please select the floor manager this is assigned to${tag}.`); return; }
       if (!it.thick) { alert(`Please select thickness${tag}.`); return; }
       if (!it.panel) { alert(`Please select panel${tag}.`); return; }
       if (!(parseFloat(it.length) > 0)) { alert(`Please enter a valid length${tag}.`); return; }
@@ -304,7 +304,7 @@ export default function NewOrderPage() {
             </div>
             <div className="g2">
               <div className="field">
-                <label>Order given to <span className="req">*</span></label>
+                <label>Assigned to <span className="req">*</span></label>
                 <select value={it.assignedTo} onChange={(e) => updateItem(idx, { assignedTo: e.target.value })}>
                   <option value="">Select floor manager…</option>
                   {floorManagers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}

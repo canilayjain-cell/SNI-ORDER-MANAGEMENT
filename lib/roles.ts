@@ -36,6 +36,10 @@ export function canCancelOrders(role: Role): boolean {
   return role === "factory" || role === "admin";
 }
 
+export function canSortByGivenTo(role: Role): boolean {
+  return role === "factory" || role === "admin";
+}
+
 export function canEditOrders(role: Role): boolean {
   return role === "admin";
 }

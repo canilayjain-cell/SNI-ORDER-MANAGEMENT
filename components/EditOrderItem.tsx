@@ -144,7 +144,7 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
         )}
         <div className="g2">
           <div className="field">
-            <label>Order given to</label>
+            <label>Assigned to</label>
             <select value={form.assignedTo} onChange={(e) => patch({ assignedTo: e.target.value })}>
               <option value="">Not assigned</option>
               {floorManagers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}

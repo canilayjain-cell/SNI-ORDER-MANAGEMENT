@@ -71,7 +71,7 @@ export default function WorksheetPage() {
   function exportCSV() {
     if (!orders.length) { toast("No orders to export"); return; }
     const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const header = ["Order No", "Item", "Order Date", "Party", "Placed By", "Given To", "Thickness", "Panel", "Door Type", "Design No", "Length(mm)", "Breadth(mm)", "Qty",
+    const header = ["Order No", "Item", "Order Date", "Party", "Placed By", "Assigned To", "Thickness", "Panel", "Door Type", "Design No", "Length(mm)", "Breadth(mm)", "Qty",
       "Total Area(sqft)", "Design", "Delivery", "Status", "In Progress At", "Completed At", "Dispatched At",
       "Production Time", "Dispatch Lead Time", "Cancelled At", "Cancel Reason", "Notes"];
     const rows = orders.map((o) => [
@@ -213,7 +213,7 @@ export default function WorksheetPage() {
                       <td>
                         {o.party}
                         {o.placed_by && <><br /><span style={{ fontSize: 11, color: "var(--g600)" }}>by {o.placed_by}</span></>}
-                        {o.assigned_to_name && <><br /><span style={{ fontSize: 11, color: "var(--g600)" }}>to {o.assigned_to_name}</span></>}
+                        {o.assigned_to_name && <><br /><span style={{ fontSize: 11, color: "var(--g600)" }}>assigned to {o.assigned_to_name}</span></>}
                       </td>
                       <td style={{ fontSize: 12 }}>{o.panel}<br /><span style={{ color: "var(--g600)" }}>{o.thick}</span>{(o.door_type || o.design_number) && <><br /><span style={{ color: "var(--g600)" }}>{[o.door_type, o.design_number && `Design no. ${o.design_number}`].filter(Boolean).join(" · ")}</span></>}</td>
                       <td style={{ fontSize: 12 }}>{fromMm(o.length_mm, "in")}×{fromMm(o.breadth_mm, "in")} in<br /><span style={{ color: "var(--g600)" }}>{o.total_sqft} sqft</span></td>
