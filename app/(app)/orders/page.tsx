@@ -8,7 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { usePhotoViewer } from "@/components/PhotoViewer";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
-import { Camera, ImagePlus, Save, RotateCcw, X, Plus, Trash2 } from "lucide-react";
+import { Camera, ImagePlus, Save, RotateCcw, X, Plus, Trash2, ChevronDown } from "lucide-react";
 import type { FloorManager } from "@/lib/types";
 
 interface FormPhoto { blob: Blob; previewUrl: string }
@@ -44,8 +44,8 @@ const FLUSH_DOOR_TYPES = [
   "Membrane Door", "Membrane Steel Beading Door", "Micro Coated Door", "UV-Membrane Door", "Custom Mica Door",
 ];
 
-// "md01", "MD 01" and "MD - 01" should all find the same design
-const normDesign = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
+// "md01", "MD 01" and "MD - 01" should all find the same option
+const normSearch = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 // Read a length input in the item's chosen unit and return it in millimetres.
 function toMm(value: string, unit: Unit): number {
@@ -83,8 +83,6 @@ export default function NewOrderPage() {
   const [partyOpen, setPartyOpen] = useState(false);
   const [placedBy, setPlacedBy] = useState("");
   const [floorManagers, setFloorManagers] = useState<FloorManager[]>([]);
-  // which item's design search is open; typed is false until the user types
-  const [designSearch, setDesignSearch] = useState<{ idx: number; text: string; typed: boolean } | null>(null);
   const [items, setItems] = useState<OrderItem[]>([blankItem()]);
   const [delivery, setDelivery] = useState("");
   const [reminderDays, setReminderDays] = useState("2");
@@ -302,9 +300,6 @@ export default function NewOrderPage() {
         const si = itemSizeInfo(it);
         const unitLabel = UNIT_LABEL[it.unit];
         const designOpts = designNumbersFor(it.doorType);
-        const search = designSearch?.idx === idx ? designSearch : null;
-        const designQuery = normDesign(search?.text ?? "");
-        const designMatches = (search?.typed ? designOpts.filter((d) => normDesign(d).includes(designQuery)) : designOpts).slice(0, 50);
         return (
           <div className="card" key={idx}>
             <div className="card-head">
@@ -352,65 +347,34 @@ export default function NewOrderPage() {
             <div className="g2">
               <div className="field">
                 <label>Door type</label>
-                <select
+                <SearchSelect
                   value={it.doorType}
-                  onChange={(e) => {
-                    const doorType = e.target.value;
-                    // a design from the previous door type can't stay selected
+                  options={doorTypeOpts}
+                  placeholder="Type or pick a door type…"
+                  emptyText="No door type matches"
+                  onChange={(doorType) => {
                     updateItem(idx, {
                       doorType,
+                      // a design from the previous door type can't stay selected
                       designNumber: designNumbersFor(doorType).includes(it.designNumber) ? it.designNumber : "",
                       // never replaces a panel someone already picked
                       panel: !it.panel && FLUSH_DOOR_TYPES.includes(doorType) && panelOpts.includes(FLUSH_PANEL) ? FLUSH_PANEL : it.panel,
                     });
                   }}
-                >
-                  <option value="">Select...</option>
-                  {doorTypeOpts.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+                />
                 {doorTypeOpts.length === 0 && (
                   <span className="field-hint">No door types added yet — an admin can add them under Manage lists.</span>
                 )}
               </div>
               <div className="field">
                 <label>Design number</label>
-                <div className="combo">
-                <input
-                  type="text"
-                  autoComplete="off"
+                <SearchSelect
+                  value={it.designNumber}
+                  options={designOpts}
                   placeholder="Type or pick a design number…"
-                  value={search?.typed ? search.text : it.designNumber}
-                  onFocus={(e) => { e.target.select(); setDesignSearch({ idx, text: "", typed: false }); }}
-                  onChange={(e) => {
-                    const text = e.target.value;
-                    setDesignSearch({ idx, text, typed: true });
-                    // only a real design number counts as selected
-                    updateItem(idx, { designNumber: designOpts.find((d) => normDesign(d) === normDesign(text)) ?? "" });
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && designMatches[0]) {
-                      updateItem(idx, { designNumber: designMatches[0] });
-                      setDesignSearch(null);
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  onBlur={() => setTimeout(() => setDesignSearch((cur) => (cur?.idx === idx ? null : cur)), 150)}
+                  emptyText="No design number matches"
+                  onChange={(designNumber) => updateItem(idx, { designNumber })}
                 />
-                {search && (
-                  <div className="combo-list">
-                    {designMatches.map((d) => (
-                      <div
-                        key={d}
-                        className="combo-opt"
-                        onMouseDown={() => { updateItem(idx, { designNumber: d }); setDesignSearch(null); }}
-                      >
-                        {d}
-                      </div>
-                    ))}
-                    {designMatches.length === 0 && <div className="combo-opt muted">No design number matches</div>}
-                  </div>
-                )}
-                </div>
                 {it.doorType && designOpts.length === 0 && (
                   <span className="field-hint">No design numbers for this door type — attach the photo under Reference photos.</span>
                 )}
@@ -540,6 +504,61 @@ export default function NewOrderPage() {
         </button>
       </div>
       {viewer}
+    </div>
+  );
+}
+
+// A dropdown you can also type in: clicking shows every option, typing narrows
+// them. Only a real option counts as selected.
+function SearchSelect({
+  value, options, placeholder, emptyText, onChange,
+}: {
+  value: string;
+  options: string[];
+  placeholder: string;
+  emptyText: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState<string | null>(null); // null until the user types
+
+  const query = normSearch(text ?? "");
+  const matches = (text === null ? options : options.filter((o) => normSearch(o).includes(query))).slice(0, 50);
+
+  function pick(option: string) {
+    onChange(option);
+    setText(null);
+    setOpen(false);
+  }
+
+  return (
+    <div className="combo">
+      <input
+        type="text"
+        autoComplete="off"
+        placeholder={placeholder}
+        style={{ paddingRight: 30 }}
+        value={open && text !== null ? text : value}
+        onFocus={(e) => { e.target.select(); setText(null); setOpen(true); }}
+        onChange={(e) => {
+          setText(e.target.value);
+          setOpen(true);
+          onChange(options.find((o) => normSearch(o) === normSearch(e.target.value)) ?? "");
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && matches[0]) { pick(matches[0]); e.currentTarget.blur(); }
+        }}
+        onBlur={() => setTimeout(() => { setOpen(false); setText(null); }, 150)}
+      />
+      <ChevronDown size={14} color="var(--g600)" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+      {open && (
+        <div className="combo-list">
+          {matches.map((o) => (
+            <div key={o} className="combo-opt" onMouseDown={() => pick(o)}>{o}</div>
+          ))}
+          {matches.length === 0 && <div className="combo-opt muted">{emptyText}</div>}
+        </div>
+      )}
     </div>
   );
 }
