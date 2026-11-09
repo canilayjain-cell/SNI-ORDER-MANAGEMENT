@@ -4,13 +4,14 @@ import { useOrders } from "@/lib/hooks/useOrders";
 import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/lib/toast";
-import { canWorkFloor } from "@/lib/roles";
+import { canEditOrders, canWorkFloor } from "@/lib/roles";
 import { deliveryDueInfo, fmtDate, orderLabel } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import Stepper from "@/components/Stepper";
 import { usePhotoViewer } from "@/components/PhotoViewer";
+import EditOrderItem from "@/components/EditOrderItem";
 import type { Order } from "@/lib/types";
-import { ArrowUp, ArrowDown, Clock, CheckCircle2, Package, RefreshCw, ClipboardList, XCircle, Search, X } from "lucide-react";
+import { ArrowUp, ArrowDown, Clock, CheckCircle2, Package, RefreshCw, ClipboardList, XCircle, Search, X, Pencil } from "lucide-react";
 
 type SortBy = "queue" | "order_new" | "order_old" | "delivery_soon" | "delivery_late";
 
@@ -23,6 +24,8 @@ export default function FloorQueuePage() {
   const { open, viewer } = usePhotoViewer();
 
   const canAct = profile ? canWorkFloor(profile.role) : false;
+  const canEdit = profile ? canEditOrders(profile.role) : false;
+  const [editing, setEditing] = useState<Order | null>(null);
   const [sortBy, setSortBy] = useState<SortBy>("queue");
   const [party, setParty] = useState("");
   const [partyOpen, setPartyOpen] = useState(false);
@@ -160,6 +163,8 @@ export default function FloorQueuePage() {
               isLast={i === visible.length - 1}
               canAct={canAct}
               canReorder={canReorder}
+              canEdit={canEdit}
+              onEdit={setEditing}
               onStart={startOrder}
               onComplete={completeOrder}
               onMove={move}
@@ -170,18 +175,21 @@ export default function FloorQueuePage() {
         </div>
       )}
       {viewer}
+      {editing && <EditOrderItem order={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
     </div>
   );
 }
 
 function FloorTicket({
-  order, isFirst, isLast, canAct, canReorder, onStart, onComplete, onMove, onCancel, onViewPhotos,
+  order, isFirst, isLast, canAct, canReorder, canEdit, onEdit, onStart, onComplete, onMove, onCancel, onViewPhotos,
 }: {
   order: Order;
   isFirst: boolean;
   isLast: boolean;
   canAct: boolean;
   canReorder: boolean;
+  canEdit: boolean;
+  onEdit: (order: Order) => void;
   onStart: (id: string) => void;
   onComplete: (id: string) => void;
   onMove: (id: string, dir: "up" | "down") => void;
@@ -238,6 +246,11 @@ function FloorTicket({
         {canAct && order.status === "in_progress" && (
           <button className="btn btn-sm btn-primary" onClick={() => onComplete(order.id)}>
             <CheckCircle2 size={13} /> Mark completed
+          </button>
+        )}
+        {canEdit && (
+          <button className="btn btn-sm" onClick={() => onEdit(order)}>
+            <Pencil size={13} /> Edit
           </button>
         )}
         {canAct && (

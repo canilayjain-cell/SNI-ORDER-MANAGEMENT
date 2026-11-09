@@ -32,6 +32,10 @@ export function canManageMachines(role: Role): boolean {
   return role === "admin";
 }
 
+export function canEditOrders(role: Role): boolean {
+  return role === "admin";
+}
+
 export function canExport(role: Role): boolean {
   return role === "admin";
 }
