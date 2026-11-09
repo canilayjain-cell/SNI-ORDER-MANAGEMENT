@@ -30,6 +30,7 @@ export default function FloorQueuePage() {
   const [editing, setEditing] = useState<Order | null>(null);
   const [unit, setUnit] = useState<Unit>("in");
   const [sortBy, setSortBy] = useState<SortBy>("queue");
+  const [assignee, setAssignee] = useState("");
   const [party, setParty] = useState("");
   const [partyOpen, setPartyOpen] = useState(false);
 
@@ -43,6 +44,15 @@ export default function FloorQueuePage() {
 
   const partyQuery = party.trim().toLowerCase();
 
+  // everyone who has items in the queue, for the Assigned to filter
+  const assignees = useMemo(() => {
+    const names = new Map<string, string>();
+    queue.forEach((o) => { if (o.assigned_to) names.set(o.assigned_to, o.assigned_to_name || "Unnamed"); });
+    return Array.from(names, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [queue]);
+  // the chosen person may have no items left in the queue
+  const activeAssignee = assignees.some((a) => a.id === assignee) ? assignee : "";
+
   const partyMatches = useMemo(
     () => Array.from(new Set(queue.map((o) => o.party))).filter((p) => p.toLowerCase().includes(partyQuery)).sort().slice(0, 8),
     [queue, partyQuery]
@@ -50,7 +60,7 @@ export default function FloorQueuePage() {
 
   // sort is stable, so the items of one order stay together in queue order
   const visible = useMemo(() => {
-    const rows = queue.filter((o) => o.party.toLowerCase().includes(partyQuery));
+    const rows = queue.filter((o) => o.party.toLowerCase().includes(partyQuery) && (!activeAssignee || o.assigned_to === activeAssignee));
     if (sortBy === "order_new") rows.sort((a, b) => time(b.created_at) - time(a.created_at));
     if (sortBy === "order_old") rows.sort((a, b) => time(a.created_at) - time(b.created_at));
     if (sortBy === "delivery_soon") rows.sort((a, b) => time(a.delivery_date) - time(b.delivery_date));
@@ -58,11 +68,11 @@ export default function FloorQueuePage() {
     // unassigned items go last
     if (sortBy === "given_to") rows.sort((a, b) => Number(!a.assigned_to_name) - Number(!b.assigned_to_name) || (a.assigned_to_name ?? "").localeCompare(b.assigned_to_name ?? ""));
     return rows;
-  }, [queue, partyQuery, sortBy]);
+  }, [queue, partyQuery, sortBy, activeAssignee]);
 
   // the arrows swap neighbours in the real queue, so they only make sense
   // when the real queue is what's on screen
-  const canReorder = canAct && sortBy === "queue" && !partyQuery;
+  const canReorder = canAct && sortBy === "queue" && !partyQuery && !activeAssignee;
 
   async function startOrder(id: string) {
     const { error } = await supabase.rpc("start_order", { p_order_id: id });
@@ -117,6 +127,12 @@ export default function FloorQueuePage() {
             <option value="delivery_soon">Delivery date: soonest first</option>
             {profile && canSortByGivenTo(profile.role) && <option value="given_to">Assigned to</option>}
           </select>
+          {profile && canSortByGivenTo(profile.role) && (
+            <select className="status-sel" value={activeAssignee} aria-label="Filter by assigned to" onChange={(e) => setAssignee(e.target.value)}>
+              <option value="">Assigned to: everyone</option>
+              {assignees.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          )}
           <div style={{ position: "relative" }}>
             <button className="btn btn-sm" onClick={() => setPartyOpen((v) => !v)}>
               <Search size={13} /> {party.trim() ? `Party: ${party.trim()}` : "Search party"}
@@ -166,8 +182,8 @@ export default function FloorQueuePage() {
       ) : visible.length === 0 ? (
         <div className="empty-block">
           <Search size={32} strokeWidth={1.5} color="var(--g400)" />
-          <div className="t">No orders for &ldquo;{party.trim()}&rdquo;</div>
-          <div className="b">Try a different party name, or clear the search.</div>
+          <div className="t">No matching orders</div>
+          <div className="b">Try a different party or person, or clear the search.</div>
         </div>
       ) : (
         <div className="ticket-list">
