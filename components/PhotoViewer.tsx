@@ -13,7 +13,8 @@ export function usePhotoViewer() {
 
   const viewer = photos ? (
     <div className="photo-viewer open" onClick={close}>
-      <div className="photo-viewer-strip">
+      <button className="photo-viewer-close" aria-label="Close photo">✕</button>
+      <div className={`photo-viewer-strip ${photos.length === 1 ? "single" : ""}`}>
         {photos.map((src, i) => (
           <img key={i} src={src} alt={`Photo ${i + 1}`} />
         ))}

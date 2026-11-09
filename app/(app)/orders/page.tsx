@@ -5,6 +5,7 @@ import { useOptionLists } from "@/lib/hooks/useOptionLists";
 import { resizeImageToBlob } from "@/lib/image";
 import { uploadToBucket } from "@/lib/storage";
 import { useAuth } from "@/components/AuthProvider";
+import { usePhotoViewer } from "@/components/PhotoViewer";
 import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, Save, RotateCcw, X, Plus, Trash2 } from "lucide-react";
@@ -34,6 +35,9 @@ const SQMM_PER_SQFT = 92903.04;
 const UNIT_LABEL: Record<Unit, string> = { mm: "mm", in: "in", ft: "ft" };
 
 const blankItem = (): OrderItem => ({ thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
+
+// "md01", "MD 01" and "MD - 01" should all find the same design
+const normDesign = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 // Read a length input in the item's chosen unit and return it in millimetres.
 function toMm(value: string, unit: Unit): number {
@@ -65,12 +69,15 @@ export default function NewOrderPage() {
   const { thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designNumbersFor, designPhotos, addOption } = useOptionLists();
   const router = useRouter();
   const supabase = createClient();
+  const { open, viewer } = usePhotoViewer();
 
   const [party, setParty] = useState("");
   const [partyOpen, setPartyOpen] = useState(false);
   const [placedBy, setPlacedBy] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
   const [floorManagers, setFloorManagers] = useState<FloorManager[]>([]);
+  // which item's design search is open; typed is false until the user types
+  const [designSearch, setDesignSearch] = useState<{ idx: number; text: string; typed: boolean } | null>(null);
   const [items, setItems] = useState<OrderItem[]>([blankItem()]);
   const [delivery, setDelivery] = useState("");
   const [reminderDays, setReminderDays] = useState("2");
@@ -297,6 +304,10 @@ export default function NewOrderPage() {
       {items.map((it, idx) => {
         const si = itemSizeInfo(it);
         const unitLabel = UNIT_LABEL[it.unit];
+        const designOpts = designNumbersFor(it.doorType);
+        const search = designSearch?.idx === idx ? designSearch : null;
+        const designQuery = normDesign(search?.text ?? "");
+        const designMatches = (search?.typed ? designOpts.filter((d) => normDesign(d).includes(designQuery)) : designOpts).slice(0, 50);
         return (
           <div className="card" key={idx}>
             <div className="card-head">
@@ -349,10 +360,43 @@ export default function NewOrderPage() {
               </div>
               <div className="field">
                 <label>Design number</label>
-                <select value={it.designNumber} onChange={(e) => updateItem(idx, { designNumber: e.target.value })}>
-                  <option value="">Select...</option>
-                  {designNumbersFor(it.doorType).map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+                <div className="combo">
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder="Type or pick a design number…"
+                  value={search?.typed ? search.text : it.designNumber}
+                  onFocus={(e) => { e.target.select(); setDesignSearch({ idx, text: "", typed: false }); }}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    setDesignSearch({ idx, text, typed: true });
+                    // only a real design number counts as selected
+                    updateItem(idx, { designNumber: designOpts.find((d) => normDesign(d) === normDesign(text)) ?? "" });
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && designMatches[0]) {
+                      updateItem(idx, { designNumber: designMatches[0] });
+                      setDesignSearch(null);
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  onBlur={() => setTimeout(() => setDesignSearch((cur) => (cur?.idx === idx ? null : cur)), 150)}
+                />
+                {search && (
+                  <div className="combo-list">
+                    {designMatches.map((d) => (
+                      <div
+                        key={d}
+                        className="combo-opt"
+                        onMouseDown={() => { updateItem(idx, { designNumber: d }); setDesignSearch(null); }}
+                      >
+                        {d}
+                      </div>
+                    ))}
+                    {designMatches.length === 0 && <div className="combo-opt muted">No design number matches</div>}
+                  </div>
+                )}
+                </div>
                 {designNumberOpts.length === 0 && (
                   <span className="field-hint">No design numbers added yet — an admin can add them under Manage lists.</span>
                 )}
@@ -363,7 +407,9 @@ export default function NewOrderPage() {
                   <img
                     src={designPhotos[it.designNumber]}
                     alt={`Design ${it.designNumber}`}
-                    style={{ display: "block", maxWidth: "100%", maxHeight: 200, marginTop: 8, borderRadius: "var(--r-md)", border: "1px solid var(--g200)" }}
+                    title="Click to view full screen"
+                    onClick={() => open([designPhotos[it.designNumber]])}
+                    style={{ alignSelf: "flex-start", maxWidth: "100%", maxHeight: 200, objectFit: "contain", marginTop: 8, borderRadius: "var(--r-md)", border: "1px solid var(--g200)", cursor: "zoom-in" }}
                   />
                 )}
               </div>
@@ -476,6 +522,7 @@ export default function NewOrderPage() {
           <RotateCcw size={14} /> Reset
         </button>
       </div>
+      {viewer}
     </div>
   );
 }

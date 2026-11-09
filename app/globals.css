@@ -211,6 +211,8 @@ textarea{resize:vertical}
 .photo-viewer.open{display:flex}
 .photo-viewer img{max-width:90vw;max-height:75vh;border-radius:var(--r-md);object-fit:contain;background:#fff}
 .photo-viewer-strip{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:90vw}
+.photo-viewer-strip.single img{height:calc(100vh - 60px);width:auto;max-height:none;max-width:90vw}
+.photo-viewer-close{position:fixed;top:14px;right:14px;width:36px;height:36px;border:none;border-radius:50%;background:rgba(255,255,255,.9);color:#1a1a18;font-size:16px;cursor:pointer}
 
 /* MANAGE */
 .mgr-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
