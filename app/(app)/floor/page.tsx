@@ -131,7 +131,7 @@ function FloorTicket({
           </div>
         )}
         <div className="ticket-sub">
-          {order.panel} · {order.thick} · {order.length_mm}×{order.breadth_mm} mm · Qty {order.qty}{" "}
+          {order.panel} · {order.thick}{order.door_type && ` · ${order.door_type}`}{order.design_number && ` · Design no. ${order.design_number}`} · {order.length_mm}×{order.breadth_mm} mm · Qty {order.qty}{" "}
           <span className={`badge ${order.design === "3D" ? "bb" : "bt"}`} style={{ marginLeft: 2 }}>{order.design}</span>
         </div>
         <div className="ticket-meta">

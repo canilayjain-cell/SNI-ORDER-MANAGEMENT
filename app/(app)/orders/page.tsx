@@ -17,6 +17,8 @@ type Unit = "mm" | "in" | "ft";
 interface OrderItem {
   thick: string;
   panel: string;
+  doorType: string;
+  designNumber: string;
   length: string;
   breadth: string;
   qty: string;
@@ -31,7 +33,7 @@ const SQMM_PER_SQFT = 92903.04;
 
 const UNIT_LABEL: Record<Unit, string> = { mm: "mm", in: "in", ft: "ft" };
 
-const blankItem = (): OrderItem => ({ thick: "", panel: "", length: "", breadth: "", qty: "1", unit: "mm", design: "2D" });
+const blankItem = (): OrderItem => ({ thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "mm", design: "2D" });
 
 // Read a length input in the item's chosen unit and return it in millimetres.
 function toMm(value: string, unit: Unit): number {
@@ -60,7 +62,7 @@ function itemSizeInfo(item: OrderItem) {
 
 export default function NewOrderPage() {
   const { profile } = useAuth();
-  const { thickOpts, panelOpts, partyOpts, salespersonOpts, addOption } = useOptionLists();
+  const { thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, addOption } = useOptionLists();
   const router = useRouter();
   const supabase = createClient();
 
@@ -188,6 +190,8 @@ export default function NewOrderPage() {
         p_items: items.map((it) => ({
           thick: it.thick,
           panel: it.panel,
+          door_type: it.doorType,
+          design_number: it.designNumber,
           length: toMm(it.length, it.unit),
           breadth: toMm(it.breadth, it.unit),
           qty: parseInt(it.qty, 10) || 1,
@@ -325,6 +329,28 @@ export default function NewOrderPage() {
                   <option value="">Select...</option>
                   {panelOpts.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
+              </div>
+            </div>
+            <div className="g2">
+              <div className="field">
+                <label>Door type</label>
+                <select value={it.doorType} onChange={(e) => updateItem(idx, { doorType: e.target.value })}>
+                  <option value="">Select...</option>
+                  {doorTypeOpts.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+                {doorTypeOpts.length === 0 && (
+                  <span className="field-hint">No door types added yet — an admin can add them under Manage lists.</span>
+                )}
+              </div>
+              <div className="field">
+                <label>Design number</label>
+                <select value={it.designNumber} onChange={(e) => updateItem(idx, { designNumber: e.target.value })}>
+                  <option value="">Select...</option>
+                  {designNumberOpts.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+                {designNumberOpts.length === 0 && (
+                  <span className="field-hint">No design numbers added yet — an admin can add them under Manage lists.</span>
+                )}
               </div>
             </div>
 

@@ -28,6 +28,8 @@ export interface Order {
   assigned_to_name: string | null;
   thick: string;
   panel: string;
+  door_type: string | null;
+  design_number: string | null;
   length_mm: number;
   breadth_mm: number;
   qty: number;
@@ -52,9 +54,11 @@ export interface Order {
   photos?: string[];
 }
 
+export type ListType = "thick" | "panel" | "party" | "salesperson" | "door_type" | "design_number";
+
 export interface OptionRow {
   id: string;
-  list_type: "thick" | "panel" | "party" | "salesperson";
+  list_type: ListType;
   value: string;
   created_at: string;
 }

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useOptionLists } from "@/lib/hooks/useOptionLists";
 import { toast } from "@/lib/toast";
-import type { OptionRow } from "@/lib/types";
+import type { ListType, OptionRow } from "@/lib/types";
 
 export default function ManageListsPage() {
   const { rows, addOption, removeOption } = useOptionLists();
@@ -10,8 +10,10 @@ export default function ManageListsPage() {
   const [inPanel, setInPanel] = useState("");
   const [inParty, setInParty] = useState("");
   const [inSales, setInSales] = useState("");
+  const [inDoorType, setInDoorType] = useState("");
+  const [inDesignNo, setInDesignNo] = useState("");
 
-  async function handleAdd(type: "thick" | "panel" | "party" | "salesperson", value: string, clear: () => void) {
+  async function handleAdd(type: ListType, value: string, clear: () => void) {
     const v = value.trim();
     if (!v) return;
     const err = await addOption(type, v);
@@ -30,6 +32,8 @@ export default function ManageListsPage() {
   const panelRows = rows.filter((r) => r.list_type === "panel");
   const partyRows = rows.filter((r) => r.list_type === "party");
   const salesRows = rows.filter((r) => r.list_type === "salesperson");
+  const doorTypeRows = rows.filter((r) => r.list_type === "door_type");
+  const designNoRows = rows.filter((r) => r.list_type === "design_number");
 
   return (
     <div className="page-inner">
@@ -56,6 +60,22 @@ export default function ManageListsPage() {
           <div className="add-row">
             <input type="text" placeholder="e.g. Ramesh" value={inSales} onChange={(e) => setInSales(e.target.value)} />
             <button className="btn btn-sm btn-primary" onClick={() => handleAdd("salesperson", inSales, () => setInSales(""))}>Add</button>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-head">Door types</div>
+          <ListBlock rows={doorTypeRows} onRemove={handleRemove} />
+          <div className="add-row">
+            <input type="text" placeholder="New door type..." value={inDoorType} onChange={(e) => setInDoorType(e.target.value)} />
+            <button className="btn btn-sm btn-primary" onClick={() => handleAdd("door_type", inDoorType, () => setInDoorType(""))}>Add</button>
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-head">Design numbers</div>
+          <ListBlock rows={designNoRows} onRemove={handleRemove} />
+          <div className="add-row">
+            <input type="text" placeholder="New design number..." value={inDesignNo} onChange={(e) => setInDesignNo(e.target.value)} />
+            <button className="btn btn-sm btn-primary" onClick={() => handleAdd("design_number", inDesignNo, () => setInDesignNo(""))}>Add</button>
           </div>
         </div>
         <div className="card" style={{ gridColumn: "1/-1" }}>

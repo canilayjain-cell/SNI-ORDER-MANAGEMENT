@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { OptionRow } from "@/lib/types";
+import type { ListType, OptionRow } from "@/lib/types";
 
 // Turn raw PostgREST/Postgres errors into something an admin can act on.
 function friendlyOptionError(
@@ -41,8 +41,10 @@ export function useOptionLists() {
   const panelOpts = rows.filter((r) => r.list_type === "panel").map((r) => r.value);
   const partyOpts = rows.filter((r) => r.list_type === "party").map((r) => r.value);
   const salespersonOpts = rows.filter((r) => r.list_type === "salesperson").map((r) => r.value);
+  const doorTypeOpts = rows.filter((r) => r.list_type === "door_type").map((r) => r.value);
+  const designNumberOpts = rows.filter((r) => r.list_type === "design_number").map((r) => r.value);
 
-  async function addOption(list_type: "thick" | "panel" | "party" | "salesperson", value: string) {
+  async function addOption(list_type: ListType, value: string) {
     const { error } = await supabase.from("option_lists").insert({ list_type, value: value.trim() });
     if (!error) await load();
     return error ? { ...error, message: friendlyOptionError(error, list_type) } : null;
@@ -54,5 +56,5 @@ export function useOptionLists() {
     return error;
   }
 
-  return { rows, thickOpts, panelOpts, partyOpts, salespersonOpts, loading, addOption, removeOption, reload: load };
+  return { rows, thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, loading, addOption, removeOption, reload: load };
 }
