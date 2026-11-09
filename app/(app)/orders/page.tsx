@@ -8,13 +8,12 @@ import { useAuth } from "@/components/AuthProvider";
 import { usePhotoViewer } from "@/components/PhotoViewer";
 import SearchSelect from "@/components/SearchSelect";
 import { toast } from "@/lib/toast";
+import { toMm, UNIT_LABEL, type Unit } from "@/lib/units";
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, Save, RotateCcw, X, Plus, Trash2 } from "lucide-react";
 import type { FloorManager } from "@/lib/types";
 
 interface FormPhoto { blob: Blob; previewUrl: string }
-
-type Unit = "mm" | "in" | "ft";
 
 interface OrderItem {
   thick: string;
@@ -29,22 +28,10 @@ interface OrderItem {
   design: "2D" | "3D";
 }
 
-const IN_TO_MM = 25.4;
-const FT_TO_MM = 304.8;
 // 1 sq ft = 92903.04 sq mm
 const SQMM_PER_SQFT = 92903.04;
 
-const UNIT_LABEL: Record<Unit, string> = { mm: "mm", in: "in", ft: "ft" };
-
 const blankItem = (): OrderItem => ({ assignedTo: "", thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
-
-// Read a length input in the item's chosen unit and return it in millimetres.
-function toMm(value: string, unit: Unit): number {
-  const n = parseFloat(value) || 0;
-  if (unit === "in") return n * IN_TO_MM;
-  if (unit === "ft") return n * FT_TO_MM;
-  return n;
-}
 
 function itemSizeInfo(item: OrderItem) {
   const lmm = toMm(item.length, item.unit);
