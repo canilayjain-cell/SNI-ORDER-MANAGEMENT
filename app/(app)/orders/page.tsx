@@ -40,7 +40,7 @@ const blankItem = (): OrderItem => ({ assignedTo: "", thick: "", panel: "", door
 // these door types are made on a flush door unless the order says otherwise
 const FLUSH_PANEL = "Flush Door";
 const FLUSH_DOOR_TYPES = [
-  "Mica Door", "Digital Mica Door", "Mica Golden Patti Door", "Mica Brass Door", "Embossed Brass Mica Door", "Mirror Door",
+  "Mica Door", "Digital Mica Door", "Mica Golden Patti Door", "Mica Brass Door", "Embossed Mica Door", "Mirror Door",
   "Membrane Door", "Membrane Steel Beading Door", "Micro Coated Door", "UV-Membrane Door", "Custom Mica Door",
 ];
 

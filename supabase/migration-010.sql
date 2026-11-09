@@ -12,7 +12,7 @@ with names(old_name, new_name) as (values
   ('Digital Mica Doors',  'Digital Mica Door'),
   ('Golden Patti Doors',  'Mica Golden Patti Door'),
   ('Brass Doors',         'Mica Brass Door'),
-  ('Embossed Doors',      'Embossed Brass Mica Door'),
+  ('Embossed Doors',      'Embossed Mica Door'),
   ('Mirror Doors',        'Mirror Door'),
   ('Membrane Doors',      'Membrane Door'),
   ('Steel Beading Doors', 'Membrane Steel Beading Door'),
