@@ -18,6 +18,7 @@ type Unit = "mm" | "in" | "ft";
 interface OrderItem {
   thick: string;
   panel: string;
+  assignedTo: string;
   doorType: string;
   designNumber: string;
   length: string;
@@ -34,7 +35,7 @@ const SQMM_PER_SQFT = 92903.04;
 
 const UNIT_LABEL: Record<Unit, string> = { mm: "mm", in: "in", ft: "ft" };
 
-const blankItem = (): OrderItem => ({ thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
+const blankItem = (): OrderItem => ({ assignedTo: "", thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
 
 // "md01", "MD 01" and "MD - 01" should all find the same design
 const normDesign = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -74,7 +75,6 @@ export default function NewOrderPage() {
   const [party, setParty] = useState("");
   const [partyOpen, setPartyOpen] = useState(false);
   const [placedBy, setPlacedBy] = useState("");
-  const [assignedTo, setAssignedTo] = useState("");
   const [floorManagers, setFloorManagers] = useState<FloorManager[]>([]);
   // which item's design search is open; typed is false until the user types
   const [designSearch, setDesignSearch] = useState<{ idx: number; text: string; typed: boolean } | null>(null);
@@ -143,7 +143,7 @@ export default function NewOrderPage() {
   }
 
   function resetForm() {
-    setParty(""); setPartyOpen(false); setPlacedBy(""); setAssignedTo(""); setItems([blankItem()]); setDelivery(""); setReminderDays("2");
+    setParty(""); setPartyOpen(false); setPlacedBy(""); setItems([blankItem()]); setDelivery(""); setReminderDays("2");
     setNotes(""); setPhotos([]);
   }
 
@@ -151,11 +151,11 @@ export default function NewOrderPage() {
     const partyName = party.trim();
     if (!partyName) { alert("Please enter a party name."); return; }
     if (!placedBy) { alert("Please select who placed this order."); return; }
-    if (!assignedTo) { alert("Please select the floor manager this order is given to."); return; }
 
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       const tag = items.length > 1 ? ` for item ${i + 1}` : "";
+      if (!it.assignedTo) { alert(`Please select the floor manager this is given to${tag}.`); return; }
       if (!it.thick) { alert(`Please select thickness${tag}.`); return; }
       if (!it.panel) { alert(`Please select panel${tag}.`); return; }
       if (!(parseFloat(it.length) > 0)) { alert(`Please enter a valid length${tag}.`); return; }
@@ -187,12 +187,12 @@ export default function NewOrderPage() {
       const { data, error } = await supabase.rpc("place_order_multi", {
         p_party: finalParty,
         p_placed_by: placedBy,
-        p_assigned_to: assignedTo,
         p_delivery: delivery,
         p_reminder_days: parseInt(reminderDays, 10),
         p_notes: notes.trim(),
         p_photo_urls: photoUrls,
         p_items: items.map((it) => ({
+          assigned_to: it.assignedTo,
           thick: it.thick,
           panel: it.panel,
           door_type: it.doorType,
@@ -239,7 +239,7 @@ export default function NewOrderPage() {
 
       <div className="card">
         <div className="card-head">Party &amp; order details</div>
-        <div className="g3">
+        <div className="g2">
           <div className="field combo">
             <label>Party <span className="req">*</span></label>
             <input
@@ -288,16 +288,6 @@ export default function NewOrderPage() {
               <span className="field-hint">No salespeople added yet — an admin can add them under Manage lists.</span>
             )}
           </div>
-          <div className="field">
-            <label>Order given to <span className="req">*</span></label>
-            <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
-              <option value="">Select floor manager…</option>
-              {floorManagers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-            {floorManagers.length === 0 && (
-              <span className="field-hint">No floor managers yet — an admin can set a login&apos;s role to Floor manager under Manage users.</span>
-            )}
-          </div>
         </div>
       </div>
 
@@ -323,6 +313,18 @@ export default function NewOrderPage() {
                   <Trash2 size={13} />
                 </button>
               )}
+            </div>
+            <div className="g2">
+              <div className="field">
+                <label>Order given to <span className="req">*</span></label>
+                <select value={it.assignedTo} onChange={(e) => updateItem(idx, { assignedTo: e.target.value })}>
+                  <option value="">Select floor manager…</option>
+                  {floorManagers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+                {floorManagers.length === 0 && (
+                  <span className="field-hint">No floor managers yet — an admin can set a login&apos;s role to Floor manager under Manage users.</span>
+                )}
+              </div>
             </div>
             <div className="g2">
               <div className="field">
