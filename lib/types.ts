@@ -79,3 +79,17 @@ export interface Machine {
   status: MachineStatus;
   created_at: string;
 }
+
+export type RawMaterialStatus = "order_placed" | "in_dispatch" | "delivered";
+
+export interface RawMaterial {
+  id: string;
+  material: string;
+  quantity: number;
+  unit: string;
+  needed_by: string | null;
+  notes: string | null;
+  status: RawMaterialStatus;
+  requested_by_name: string | null;
+  created_at: string;
+}

@@ -4,10 +4,10 @@ import type { Role } from "./types";
 // replace — the row-level-security policies in supabase/schema.sql. This
 // list only controls navigation/UX; the database is the real gate.
 export const ROLE_ROUTES: Record<Role, string[]> = {
-  admin: ["/orders", "/floor", "/dispatch", "/worksheet", "/lists", "/users", "/machinery"],
-  factory: ["/floor", "/dispatch"],
-  sales: ["/orders", "/floor", "/worksheet"],
-  floor_manager: ["/floor", "/dispatch", "/machinery"],
+  admin: ["/orders", "/floor", "/dispatch", "/worksheet", "/lists", "/users", "/machinery", "/raw-materials"],
+  factory: ["/floor", "/dispatch", "/raw-materials"],
+  sales: ["/orders", "/floor", "/worksheet", "/raw-materials"],
+  floor_manager: ["/floor", "/dispatch", "/machinery", "/raw-materials"],
 };
 
 export const DEFAULT_ROUTE: Record<Role, string> = {
