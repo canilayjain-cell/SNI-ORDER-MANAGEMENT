@@ -19,6 +19,8 @@ interface OrderItem {
   thick: string;
   panel: string;
   assignedTo: string;
+  photos: FormPhoto[];
+  notes: string;
   doorType: string;
   designNumber: string;
   length: string;
@@ -31,7 +33,7 @@ interface OrderItem {
 // 1 sq ft = 92903.04 sq mm
 const SQMM_PER_SQFT = 92903.04;
 
-const blankItem = (): OrderItem => ({ assignedTo: "", thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
+const blankItem = (): OrderItem => ({ assignedTo: "", photos: [], notes: "", thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
 
 function itemSizeInfo(item: OrderItem) {
   const lmm = toMm(item.length, item.unit);
@@ -64,8 +66,6 @@ export default function NewOrderPage() {
   const [items, setItems] = useState<OrderItem[]>([blankItem()]);
   const [delivery, setDelivery] = useState("");
   const [reminderDays, setReminderDays] = useState("2");
-  const [notes, setNotes] = useState("");
-  const [photos, setPhotos] = useState<FormPhoto[]>([]);
   const [saving, setSaving] = useState(false);
 
   const today = useMemo(
@@ -91,8 +91,6 @@ export default function NewOrderPage() {
   const partyIsKnown = partyOpts.some((p) => p.toLowerCase() === partyQuery);
 
   const doorTypeRow = (value: string) => optionRows.find((r) => r.list_type === "door_type" && r.value === value);
-  const photoRequiredFor = Array.from(new Set(items.map((it) => it.doorType))).filter((d) => doorTypeRow(d)?.photo_required);
-  const needsPhoto = photoRequiredFor.length > 0;
 
   function updateItem(i: number, patch: Partial<OrderItem>) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -114,24 +112,23 @@ export default function NewOrderPage() {
     return `Reminder set for ${fmt(r)} — ${rd} day${rd > 1 ? "s" : ""} before delivery on ${fmt(d)}`;
   }, [delivery, reminderDays]);
 
-  async function handlePhotoInput(files: FileList | null) {
+  async function handlePhotoInput(itemIdx: number, files: FileList | null) {
     if (!files) return;
     for (const f of Array.from(files)) {
       try {
         const resized = await resizeImageToBlob(f, 1000, 0.72);
-        setPhotos((prev) => [...prev, resized]);
+        setItems((prev) => prev.map((it, idx) => (idx === itemIdx ? { ...it, photos: [...it.photos, resized] } : it)));
       } catch {
         toast("Could not load that photo");
       }
     }
   }
-  function removePhoto(i: number) {
-    setPhotos((prev) => prev.filter((_, idx) => idx !== i));
+  function removePhoto(itemIdx: number, photoIdx: number) {
+    setItems((prev) => prev.map((it, idx) => (idx === itemIdx ? { ...it, photos: it.photos.filter((_, j) => j !== photoIdx) } : it)));
   }
 
   function resetForm() {
     setParty(""); setPartyOpen(false); setPlacedBy(""); setItems([blankItem()]); setDelivery(""); setReminderDays("2");
-    setNotes(""); setPhotos([]);
   }
 
   async function handleSave() {
@@ -148,9 +145,9 @@ export default function NewOrderPage() {
       if (!(parseFloat(it.length) > 0)) { alert(`Please enter a valid length${tag}.`); return; }
       if (!(parseFloat(it.breadth) > 0)) { alert(`Please enter a valid breadth${tag}.`); return; }
       if (!(parseInt(it.qty, 10) > 0)) { alert(`Please enter a valid quantity${tag}.`); return; }
+      if (doorTypeRow(it.doorType)?.photo_required && it.photos.length === 0) { alert(`Please add a reference photo for ${it.doorType}${tag}.`); return; }
     }
     if (!delivery) { alert("Please select a delivery date."); return; }
-    if (needsPhoto && photos.length === 0) { alert(`Please add a reference photo for ${photoRequiredFor.join(", ")}.`); return; }
 
     setSaving(true);
     try {
@@ -165,11 +162,14 @@ export default function NewOrderPage() {
         }
       }
 
-      const photoUrls: string[] = [];
-      for (let i = 0; i < photos.length; i++) {
-        const path = `${profile?.id}/${Date.now()}-${i}.jpg`;
-        const url = await uploadToBucket("reference-photos", path, photos[i].blob);
-        photoUrls.push(url);
+      const itemPhotoUrls: string[][] = [];
+      for (let i = 0; i < items.length; i++) {
+        const urls: string[] = [];
+        for (let j = 0; j < items[i].photos.length; j++) {
+          const path = `${profile?.id}/${Date.now()}-${i}-${j}.jpg`;
+          urls.push(await uploadToBucket("reference-photos", path, items[i].photos[j].blob));
+        }
+        itemPhotoUrls.push(urls);
       }
 
       const { data, error } = await supabase.rpc("place_order_multi", {
@@ -177,10 +177,12 @@ export default function NewOrderPage() {
         p_placed_by: placedBy,
         p_delivery: delivery,
         p_reminder_days: parseInt(reminderDays, 10),
-        p_notes: notes.trim(),
-        p_photo_urls: photoUrls,
-        p_items: items.map((it) => ({
+        p_notes: "",
+        p_photo_urls: [],
+        p_items: items.map((it, i) => ({
           assigned_to: it.assignedTo,
+          photo_urls: itemPhotoUrls[i],
+          notes: it.notes.trim(),
           thick: it.thick,
           panel: it.panel,
           door_type: it.doorType,
@@ -283,6 +285,7 @@ export default function NewOrderPage() {
         const si = itemSizeInfo(it);
         const unitLabel = UNIT_LABEL[it.unit];
         const designOpts = designNumbersFor(it.doorType);
+        const photoRequired = !!doorTypeRow(it.doorType)?.photo_required;
         return (
           <div className="card" key={idx}>
             <div className="card-head">
@@ -367,7 +370,7 @@ export default function NewOrderPage() {
                   onChange={(designNumber) => updateItem(idx, { designNumber })}
                 />
                 {it.doorType && designOpts.length === 0 && (
-                  <span className="field-hint">No design numbers for this door type — attach the photo under Reference photos.</span>
+                  <span className="field-hint">No design numbers for this door type — attach the photo under Reference photos below.</span>
                 )}
                 {designNumberOpts.length === 0 && (
                   <span className="field-hint">No design numbers added yet — an admin can add them under Manage lists.</span>
@@ -425,6 +428,41 @@ export default function NewOrderPage() {
                 <div className={`dc ${it.design === "3D" ? "active" : ""}`} onClick={() => updateItem(idx, { design: "3D" })}>3D</div>
               </div>
             </div>
+            <div style={{ marginTop: 16 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--g600)", textTransform: "uppercase", letterSpacing: ".07em", display: "block", marginBottom: 10 }}>
+                Reference photos (shown to the factory floor) {photoRequired ? <span className="req">*</span> : "— optional"}
+              </label>
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <label className="btn btn-sm">
+                  <Camera size={13} /> Camera
+                  <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => { handlePhotoInput(idx, e.target.files); e.target.value = ""; }} />
+                </label>
+                <label className="btn btn-sm">
+                  <ImagePlus size={13} /> Gallery
+                  <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { handlePhotoInput(idx, e.target.files); e.target.value = ""; }} />
+                </label>
+              </div>
+              {photoRequired && it.photos.length === 0 && <span className="field-hint">A reference photo is required for {it.doorType}.</span>}
+              <div className="photo-grid">
+                {it.photos.map((p, j) => (
+                  <div key={j} style={{ position: "relative" }}>
+                    <img src={p.previewUrl} className="photo-thumb" alt={`Photo ${j + 1}`} onClick={() => removePhoto(idx, j)} title="Click to remove" />
+                    <button
+                      type="button"
+                      aria-label="Remove photo"
+                      onClick={() => removePhoto(idx, j)}
+                      style={{ position: "absolute", top: -6, right: -6, background: "#1a1a18", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="field" style={{ marginTop: 16 }}>
+              <label>Notes — optional</label>
+              <textarea rows={2} placeholder="Special instructions, finishing details, colour codes..." value={it.notes} onChange={(e) => updateItem(idx, { notes: e.target.value })} />
+            </div>
           </div>
         );
       })}
@@ -451,39 +489,6 @@ export default function NewOrderPage() {
           </div>
         </div>
         {reminderInfo && <div className="rem-box">{reminderInfo}</div>}
-      </div>
-
-      <div className="card">
-        <div className="card-head">Reference photos (shown to the factory floor) {needsPhoto ? <span className="req">*</span> : "— optional"}</div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-          <label className="btn btn-sm">
-            <Camera size={13} /> Camera
-            <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => handlePhotoInput(e.target.files)} />
-          </label>
-          <label className="btn btn-sm">
-            <ImagePlus size={13} /> Gallery
-            <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => handlePhotoInput(e.target.files)} />
-          </label>
-        </div>
-        {needsPhoto && photos.length === 0 && <span className="field-hint">A reference photo is required for {photoRequiredFor.join(", ")}.</span>}
-        <div className="photo-grid">
-          {photos.map((p, i) => (
-            <div key={i} style={{ position: "relative" }}>
-              <img src={p.previewUrl} className="photo-thumb" alt={`Photo ${i + 1}`} onClick={() => removePhoto(i)} title="Click to remove" />
-              <button
-                onClick={() => removePhoto(i)}
-                style={{ position: "absolute", top: -6, right: -6, background: "#1a1a18", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
-              >
-                <X size={11} />
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="card-head">Notes — optional</div>
-        <textarea rows={3} placeholder="Special instructions, finishing details, colour codes..." value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 
       <div className="btn-group">
