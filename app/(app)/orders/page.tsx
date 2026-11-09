@@ -62,7 +62,7 @@ function itemSizeInfo(item: OrderItem) {
 
 export default function NewOrderPage() {
   const { profile } = useAuth();
-  const { thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, addOption } = useOptionLists();
+  const { thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designPhotos, addOption } = useOptionLists();
   const router = useRouter();
   const supabase = createClient();
 
@@ -156,8 +156,6 @@ export default function NewOrderPage() {
       if (!(parseInt(it.qty, 10) > 0)) { alert(`Please enter a valid quantity${tag}.`); return; }
     }
     if (!delivery) { alert("Please select a delivery date."); return; }
-    if (!notes.trim()) { alert("Please add notes / instructions for the floor."); return; }
-    if (photos.length === 0) { alert("Please add at least one reference photo."); return; }
 
     setSaving(true);
     try {
@@ -351,6 +349,16 @@ export default function NewOrderPage() {
                 {designNumberOpts.length === 0 && (
                   <span className="field-hint">No design numbers added yet — an admin can add them under Manage lists.</span>
                 )}
+                {it.designNumber && !designPhotos[it.designNumber] && (
+                  <span className="field-hint">No photo saved for this design number yet.</span>
+                )}
+                {designPhotos[it.designNumber] && (
+                  <img
+                    src={designPhotos[it.designNumber]}
+                    alt={`Design ${it.designNumber}`}
+                    style={{ display: "block", maxWidth: "100%", maxHeight: 200, marginTop: 8, borderRadius: "var(--r-md)", border: "1px solid var(--g200)" }}
+                  />
+                )}
               </div>
             </div>
 
@@ -421,7 +429,7 @@ export default function NewOrderPage() {
       </div>
 
       <div className="card">
-        <div className="card-head">Reference photos (shown to the factory floor) <span className="req">*</span></div>
+        <div className="card-head">Reference photos (shown to the factory floor) — optional</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
           <label className="btn btn-sm">
             <Camera size={13} /> Camera
@@ -432,7 +440,6 @@ export default function NewOrderPage() {
             <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => handlePhotoInput(e.target.files)} />
           </label>
         </div>
-        {photos.length === 0 && <span className="field-hint">At least one reference photo is required.</span>}
         <div className="photo-grid">
           {photos.map((p, i) => (
             <div key={i} style={{ position: "relative" }}>
@@ -449,7 +456,7 @@ export default function NewOrderPage() {
       </div>
 
       <div className="card">
-        <div className="card-head">Notes <span className="req">*</span></div>
+        <div className="card-head">Notes — optional</div>
         <textarea rows={3} placeholder="Special instructions, finishing details, colour codes..." value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
 

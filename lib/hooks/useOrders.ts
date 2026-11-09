@@ -18,7 +18,8 @@ export function useOrders() {
       setOrders(
         data.map((o: any) => ({
           ...o,
-          photos: (o.order_photos || []).map((p: any) => p.url),
+          // the design photo goes first: it is what the ticket shows
+          photos: [o.design_photo_url, ...(o.order_photos || []).map((p: any) => p.url)].filter(Boolean),
         }))
       );
     }

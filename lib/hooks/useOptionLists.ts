@@ -43,11 +43,22 @@ export function useOptionLists() {
   const salespersonOpts = rows.filter((r) => r.list_type === "salesperson").map((r) => r.value);
   const doorTypeOpts = rows.filter((r) => r.list_type === "door_type").map((r) => r.value);
   const designNumberOpts = rows.filter((r) => r.list_type === "design_number").map((r) => r.value);
+  const designPhotos: Record<string, string> = {};
+  rows.forEach((r) => { if (r.list_type === "design_number" && r.photo_url) designPhotos[r.value] = r.photo_url; });
 
   async function addOption(list_type: ListType, value: string) {
     const { error } = await supabase.from("option_lists").insert({ list_type, value: value.trim() });
     if (!error) await load();
     return error ? { ...error, message: friendlyOptionError(error, list_type) } : null;
+  }
+
+  // creates the design number if it isn't in the list yet; callers reload
+  // once when they're done, since a bulk upload calls this per file
+  async function setDesignPhoto(value: string, photo_url: string) {
+    const { error } = await supabase
+      .from("option_lists")
+      .upsert({ list_type: "design_number", value, photo_url }, { onConflict: "list_type,value" });
+    return error ? { ...error, message: friendlyOptionError(error, "design_number") } : null;
   }
 
   async function removeOption(id: string) {
@@ -56,5 +67,5 @@ export function useOptionLists() {
     return error;
   }
 
-  return { rows, thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, loading, addOption, removeOption, reload: load };
+  return { rows, thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designPhotos, loading, addOption, setDesignPhoto, removeOption, reload: load };
 }

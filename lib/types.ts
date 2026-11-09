@@ -30,6 +30,7 @@ export interface Order {
   panel: string;
   door_type: string | null;
   design_number: string | null;
+  design_photo_url: string | null;
   length_mm: number;
   breadth_mm: number;
   qty: number;
@@ -60,6 +61,7 @@ export interface OptionRow {
   id: string;
   list_type: ListType;
   value: string;
+  photo_url: string | null;
   created_at: string;
 }
 
