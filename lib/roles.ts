@@ -5,7 +5,7 @@ import type { Role } from "./types";
 // list only controls navigation/UX; the database is the real gate.
 export const ROLE_ROUTES: Record<Role, string[]> = {
   admin: ["/orders", "/floor", "/dispatch", "/worksheet", "/lists", "/users", "/machinery", "/raw-materials"],
-  factory: ["/floor", "/dispatch", "/raw-materials"],
+  factory: ["/floor", "/dispatch", "/machinery", "/raw-materials"],
   sales: ["/orders", "/floor", "/worksheet", "/raw-materials"],
   floor_manager: ["/floor", "/dispatch", "/machinery", "/raw-materials"],
 };
