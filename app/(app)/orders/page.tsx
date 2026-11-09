@@ -37,6 +37,13 @@ const UNIT_LABEL: Record<Unit, string> = { mm: "mm", in: "in", ft: "ft" };
 
 const blankItem = (): OrderItem => ({ assignedTo: "", thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
 
+// these door types are made on a flush door unless the order says otherwise
+const FLUSH_PANEL = "Flush Door";
+const FLUSH_DOOR_TYPES = [
+  "Mica Door", "Digital Mica Door", "Mica Golden Patti Door", "Mica Brass Door", "Embossed Brass Mica Door", "Mirror Door",
+  "Membrane Door", "Membrane Steel Beading Door", "Micro Coated Door", "UV-Membrane Door", "Custom Mica Door",
+];
+
 // "md01", "MD 01" and "MD - 01" should all find the same design
 const normDesign = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -350,7 +357,12 @@ export default function NewOrderPage() {
                   onChange={(e) => {
                     const doorType = e.target.value;
                     // a design from the previous door type can't stay selected
-                    updateItem(idx, { doorType, designNumber: designNumbersFor(doorType).includes(it.designNumber) ? it.designNumber : "" });
+                    updateItem(idx, {
+                      doorType,
+                      designNumber: designNumbersFor(doorType).includes(it.designNumber) ? it.designNumber : "",
+                      // never replaces a panel someone already picked
+                      panel: !it.panel && FLUSH_DOOR_TYPES.includes(doorType) && panelOpts.includes(FLUSH_PANEL) ? FLUSH_PANEL : it.panel,
+                    });
                   }}
                 >
                   <option value="">Select...</option>
@@ -399,6 +411,9 @@ export default function NewOrderPage() {
                   </div>
                 )}
                 </div>
+                {it.doorType && designOpts.length === 0 && (
+                  <span className="field-hint">No design numbers for this door type — attach the photo under Reference photos.</span>
+                )}
                 {designNumberOpts.length === 0 && (
                   <span className="field-hint">No design numbers added yet — an admin can add them under Manage lists.</span>
                 )}
