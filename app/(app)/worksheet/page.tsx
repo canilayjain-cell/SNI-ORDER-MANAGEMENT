@@ -7,6 +7,7 @@ import { average, deliveryDueInfo, durationHours, fmtDate, fmtDateTime, fmtDurat
 import StatusBadge, { STATUS_COLOR, STATUS_LABEL } from "@/components/StatusBadge";
 import PrintDoc from "@/components/PrintDoc";
 import { toast } from "@/lib/toast";
+import { fromMm } from "@/lib/units";
 import type { Order, OrderStatus } from "@/lib/types";
 import { RefreshCw, Download, Printer, Table2 } from "lucide-react";
 
@@ -215,7 +216,7 @@ export default function WorksheetPage() {
                         {o.assigned_to_name && <><br /><span style={{ fontSize: 11, color: "var(--g600)" }}>to {o.assigned_to_name}</span></>}
                       </td>
                       <td style={{ fontSize: 12 }}>{o.panel}<br /><span style={{ color: "var(--g600)" }}>{o.thick}</span>{(o.door_type || o.design_number) && <><br /><span style={{ color: "var(--g600)" }}>{[o.door_type, o.design_number && `Design no. ${o.design_number}`].filter(Boolean).join(" · ")}</span></>}</td>
-                      <td style={{ fontSize: 12 }}>{o.length_mm}×{o.breadth_mm} mm<br /><span style={{ color: "var(--g600)" }}>{o.total_sqft} sqft</span></td>
+                      <td style={{ fontSize: 12 }}>{fromMm(o.length_mm, "in")}×{fromMm(o.breadth_mm, "in")} in<br /><span style={{ color: "var(--g600)" }}>{o.total_sqft} sqft</span></td>
                       <td style={{ fontSize: 12, ...due.css }}>{fmtDate(o.delivery_date)}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "var(--g600)" }}>{due.label}</span></td>
                       <td><span className={`badge ${o.design === "3D" ? "bb" : "bt"}`}>{o.design}</span></td>
                       <td><StatusBadge status={o.status} />{o.status === "cancelled" && o.cancel_reason && <><br /><span style={{ fontSize: 11, color: "var(--red)" }} title={o.cancel_reason}>{o.cancel_reason}</span></>}</td>
