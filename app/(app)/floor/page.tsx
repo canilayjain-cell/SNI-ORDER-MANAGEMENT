@@ -4,6 +4,7 @@ import { useOrders } from "@/lib/hooks/useOrders";
 import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/lib/toast";
+import { fromMm } from "@/lib/units";
 import { canEditOrders, canWorkFloor } from "@/lib/roles";
 import { deliveryDueInfo, fmtDate, orderLabel } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
@@ -218,7 +219,7 @@ function FloorTicket({
           </div>
         )}
         <div className="ticket-sub">
-          {order.panel} · {order.thick}{order.door_type && ` · ${order.door_type}`}{order.design_number && ` · Design no. ${order.design_number}`} · {order.length_mm}×{order.breadth_mm} mm · Qty {order.qty}{" "}
+          {order.panel} · {order.thick}{order.door_type && ` · ${order.door_type}`}{order.design_number && ` · Design no. ${order.design_number}`} · {fromMm(order.length_mm, "in")}×{fromMm(order.breadth_mm, "in")} in · Qty {order.qty}{" "}
           <span className={`badge ${order.design === "3D" ? "bb" : "bt"}`} style={{ marginLeft: 2 }}>{order.design}</span>
         </div>
         <div className="ticket-meta">
