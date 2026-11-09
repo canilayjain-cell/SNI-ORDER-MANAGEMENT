@@ -38,16 +38,6 @@ const UNIT_LABEL: Record<Unit, string> = { mm: "mm", in: "in", ft: "ft" };
 
 const blankItem = (): OrderItem => ({ assignedTo: "", thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
 
-// these door types are made on a flush door unless the order says otherwise
-const FLUSH_PANEL = "Flush Door";
-const FLUSH_DOOR_TYPES = [
-  "Mica Door", "Digital Mica Door", "Mica Golden Patti Door", "Mica Brass Door", "Embossed Mica Door", "Mirror Door",
-  "Membrane Door", "Membrane Steel Beading Door", "Micro Coated Door", "UV-Membrane Door", "Custom Mica Door",
-];
-
-// has no catalog photo, so the order must carry one
-const CUSTOM_DOOR_TYPE = "Custom Mica Door";
-
 // Read a length input in the item's chosen unit and return it in millimetres.
 function toMm(value: string, unit: Unit): number {
   const n = parseFloat(value) || 0;
@@ -75,7 +65,7 @@ function itemSizeInfo(item: OrderItem) {
 
 export default function NewOrderPage() {
   const { profile } = useAuth();
-  const { thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designNumbersFor, designPhotos, addOption } = useOptionLists();
+  const { rows: optionRows, thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designNumbersFor, designPhotos, addOption } = useOptionLists();
   const router = useRouter();
   const supabase = createClient();
   const { open, viewer } = usePhotoViewer();
@@ -113,7 +103,9 @@ export default function NewOrderPage() {
   );
   const partyIsKnown = partyOpts.some((p) => p.toLowerCase() === partyQuery);
 
-  const needsPhoto = items.some((it) => it.doorType === CUSTOM_DOOR_TYPE);
+  const doorTypeRow = (value: string) => optionRows.find((r) => r.list_type === "door_type" && r.value === value);
+  const photoRequiredFor = Array.from(new Set(items.map((it) => it.doorType))).filter((d) => doorTypeRow(d)?.photo_required);
+  const needsPhoto = photoRequiredFor.length > 0;
 
   function updateItem(i: number, patch: Partial<OrderItem>) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
@@ -171,7 +163,7 @@ export default function NewOrderPage() {
       if (!(parseInt(it.qty, 10) > 0)) { alert(`Please enter a valid quantity${tag}.`); return; }
     }
     if (!delivery) { alert("Please select a delivery date."); return; }
-    if (needsPhoto && photos.length === 0) { alert(`Please add a reference photo for the ${CUSTOM_DOOR_TYPE}.`); return; }
+    if (needsPhoto && photos.length === 0) { alert(`Please add a reference photo for ${photoRequiredFor.join(", ")}.`); return; }
 
     setSaving(true);
     try {
@@ -357,12 +349,13 @@ export default function NewOrderPage() {
                   placeholder="Type or pick a door type…"
                   emptyText="No door type matches"
                   onChange={(doorType) => {
+                    const defaultPanel = doorTypeRow(doorType)?.default_panel;
                     updateItem(idx, {
                       doorType,
                       // a design from the previous door type can't stay selected
                       designNumber: designNumbersFor(doorType).includes(it.designNumber) ? it.designNumber : "",
                       // never replaces a panel someone already picked
-                      panel: !it.panel && FLUSH_DOOR_TYPES.includes(doorType) && panelOpts.includes(FLUSH_PANEL) ? FLUSH_PANEL : it.panel,
+                      panel: !it.panel && defaultPanel && panelOpts.includes(defaultPanel) ? defaultPanel : it.panel,
                     });
                   }}
                 />
@@ -478,7 +471,7 @@ export default function NewOrderPage() {
             <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => handlePhotoInput(e.target.files)} />
           </label>
         </div>
-        {needsPhoto && photos.length === 0 && <span className="field-hint">A reference photo is required for {CUSTOM_DOOR_TYPE}.</span>}
+        {needsPhoto && photos.length === 0 && <span className="field-hint">A reference photo is required for {photoRequiredFor.join(", ")}.</span>}
         <div className="photo-grid">
           {photos.map((p, i) => (
             <div key={i} style={{ position: "relative" }}>

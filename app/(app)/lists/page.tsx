@@ -5,11 +5,11 @@ import { toast } from "@/lib/toast";
 import { resizeImageToBlob } from "@/lib/image";
 import { uploadToBucket } from "@/lib/storage";
 import { usePhotoViewer } from "@/components/PhotoViewer";
-import { Upload } from "lucide-react";
+import { Pencil, Upload } from "lucide-react";
 import type { ListType, OptionRow } from "@/lib/types";
 
 export default function ManageListsPage() {
-  const { rows, addOption, setDesignPhoto, setDesignDoorType, removeOption, reload } = useOptionLists();
+  const { rows, addOption, setDesignPhoto, setDesignDoorType, renameOption, removeOption, reload } = useOptionLists();
   const { open, viewer } = usePhotoViewer();
   const [uploading, setUploading] = useState(false);
   const [uploadDoorType, setUploadDoorType] = useState("");
@@ -27,6 +27,14 @@ export default function ManageListsPage() {
     if (err) { toast("Could not add: " + err.message); return; }
     clear();
     toast(`"${v}" added`);
+  }
+
+  async function handleRename(row: OptionRow) {
+    const value = window.prompt(`Rename "${row.value}" to:`, row.value)?.trim();
+    if (!value || value === row.value) return;
+    const err = await renameOption(row, value);
+    if (err) { toast("Could not rename: " + err.message); return; }
+    toast(`Renamed to "${value}"`);
   }
 
   async function handleRemove(row: OptionRow) {
@@ -94,7 +102,7 @@ export default function ManageListsPage() {
       <div className="mgr-grid">
         <div className="card">
           <div className="card-head">Thickness options</div>
-          <ListBlock rows={thickRows} onRemove={handleRemove} />
+          <ListBlock rows={thickRows} onRemove={handleRemove} onRename={handleRename} />
           <div className="add-row">
             <input type="text" placeholder="e.g. 10mm" value={inThick} onChange={(e) => setInThick(e.target.value)} />
             <button className="btn btn-sm btn-primary" onClick={() => handleAdd("thick", inThick, () => setInThick(""))}>Add</button>
@@ -102,7 +110,7 @@ export default function ManageListsPage() {
         </div>
         <div className="card">
           <div className="card-head">Panel options</div>
-          <ListBlock rows={panelRows} onRemove={handleRemove} />
+          <ListBlock rows={panelRows} onRemove={handleRemove} onRename={handleRename} />
           <div className="add-row">
             <input type="text" placeholder="e.g. Sunboard" value={inPanel} onChange={(e) => setInPanel(e.target.value)} />
             <button className="btn btn-sm btn-primary" onClick={() => handleAdd("panel", inPanel, () => setInPanel(""))}>Add</button>
@@ -110,7 +118,7 @@ export default function ManageListsPage() {
         </div>
         <div className="card">
           <div className="card-head">Salespeople (order placed by)</div>
-          <ListBlock rows={salesRows} onRemove={handleRemove} />
+          <ListBlock rows={salesRows} onRemove={handleRemove} onRename={handleRename} />
           <div className="add-row">
             <input type="text" placeholder="e.g. Ramesh" value={inSales} onChange={(e) => setInSales(e.target.value)} />
             <button className="btn btn-sm btn-primary" onClick={() => handleAdd("salesperson", inSales, () => setInSales(""))}>Add</button>
@@ -118,7 +126,7 @@ export default function ManageListsPage() {
         </div>
         <div className="card">
           <div className="card-head">Door types</div>
-          <ListBlock rows={doorTypeRows} onRemove={handleRemove} />
+          <ListBlock rows={doorTypeRows} onRemove={handleRemove} onRename={handleRename} />
           <div className="add-row">
             <input type="text" placeholder="New door type..." value={inDoorType} onChange={(e) => setInDoorType(e.target.value)} />
             <button className="btn btn-sm btn-primary" onClick={() => handleAdd("door_type", inDoorType, () => setInDoorType(""))}>Add</button>
@@ -179,6 +187,7 @@ export default function ManageListsPage() {
                       onChange={(e) => { handleSinglePhoto(r, e.target.files?.[0]); e.target.value = ""; }}
                     />
                   </label>
+                  <button className="mgr-del" aria-label={`Rename ${r.value}`} title="Rename" onClick={() => handleRename(r)}><Pencil size={12} /></button>
                   <button className="mgr-del" aria-label={`Remove ${r.value}`} onClick={() => handleRemove(r)}>✕</button>
                 </div>
               ))}
@@ -191,7 +200,7 @@ export default function ManageListsPage() {
         </div>
         <div className="card" style={{ gridColumn: "1/-1" }}>
           <div className="card-head">Party list</div>
-          <ListBlock rows={partyRows} onRemove={handleRemove} />
+          <ListBlock rows={partyRows} onRemove={handleRemove} onRename={handleRename} />
           <div className="add-row">
             <input type="text" placeholder="New party name..." value={inParty} onChange={(e) => setInParty(e.target.value)} />
             <button className="btn btn-sm btn-primary" onClick={() => handleAdd("party", inParty, () => setInParty(""))}>Add</button>
@@ -203,14 +212,15 @@ export default function ManageListsPage() {
   );
 }
 
-function ListBlock({ rows, onRemove }: { rows: OptionRow[]; onRemove: (r: OptionRow) => void }) {
+function ListBlock({ rows, onRemove, onRename }: { rows: OptionRow[]; onRemove: (r: OptionRow) => void; onRename: (r: OptionRow) => void }) {
   if (!rows.length) return <div className="mgr-empty">No items yet.</div>;
   return (
     <div className="mgr-list">
       {rows.map((r) => (
         <div className="mgr-item" key={r.id}>
-          <span>{r.value}</span>
-          <button className="mgr-del" onClick={() => onRemove(r)}>✕</button>
+          <span style={{ flex: 1, minWidth: 0 }}>{r.value}</span>
+          <button className="mgr-del" aria-label={`Rename ${r.value}`} title="Rename" onClick={() => onRename(r)}><Pencil size={12} /></button>
+          <button className="mgr-del" aria-label={`Remove ${r.value}`} onClick={() => onRemove(r)}>✕</button>
         </div>
       ))}
     </div>

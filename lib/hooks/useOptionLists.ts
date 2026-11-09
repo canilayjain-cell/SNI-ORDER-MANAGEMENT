@@ -72,11 +72,18 @@ export function useOptionLists() {
     return error;
   }
 
+  // the database also updates everything stored under the old name
+  async function renameOption(row: OptionRow, value: string) {
+    const { error } = await supabase.rpc("rename_option", { p_id: row.id, p_value: value });
+    if (!error) await load();
+    return error ? { ...error, message: friendlyOptionError(error, row.list_type) } : null;
+  }
+
   async function removeOption(id: string) {
     const { error } = await supabase.from("option_lists").delete().eq("id", id);
     if (!error) await load();
     return error;
   }
 
-  return { rows, thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designNumbersFor, designPhotos, loading, addOption, setDesignPhoto, setDesignDoorType, removeOption, reload: load };
+  return { rows, thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designNumbersFor, designPhotos, loading, addOption, setDesignPhoto, setDesignDoorType, renameOption, removeOption, reload: load };
 }

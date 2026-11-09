@@ -63,6 +63,8 @@ export interface OptionRow {
   value: string;
   photo_url: string | null;
   door_type: string | null;
+  default_panel: string | null;
+  photo_required: boolean;
   created_at: string;
 }
 
