@@ -67,3 +67,12 @@ export interface FloorManager {
   id: string;
   name: string;
 }
+
+export type MachineStatus = "working" | "not_working" | "in_service";
+
+export interface Machine {
+  id: string;
+  name: string;
+  status: MachineStatus;
+  created_at: string;
+}

@@ -4,10 +4,10 @@ import type { Role } from "./types";
 // replace — the row-level-security policies in supabase/schema.sql. This
 // list only controls navigation/UX; the database is the real gate.
 export const ROLE_ROUTES: Record<Role, string[]> = {
-  admin: ["/orders", "/floor", "/dispatch", "/worksheet", "/lists", "/users"],
+  admin: ["/orders", "/floor", "/dispatch", "/worksheet", "/lists", "/users", "/machinery"],
   factory: ["/floor", "/dispatch"],
   sales: ["/orders", "/floor", "/worksheet"],
-  floor_manager: ["/floor", "/dispatch"],
+  floor_manager: ["/floor", "/dispatch", "/machinery"],
 };
 
 export const DEFAULT_ROUTE: Record<Role, string> = {
@@ -26,6 +26,10 @@ export const ROLE_LABEL: Record<Role, string> = {
 
 export function canWorkFloor(role: Role): boolean {
   return role === "factory" || role === "floor_manager" || role === "admin";
+}
+
+export function canManageMachines(role: Role): boolean {
+  return role === "admin";
 }
 
 export function canExport(role: Role): boolean {

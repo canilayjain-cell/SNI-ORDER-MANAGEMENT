@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PlusCircle, ClipboardList, Truck, Table2, Settings, Users } from "lucide-react";
+import { PlusCircle, ClipboardList, Truck, Table2, Settings, Users, Wrench } from "lucide-react";
 import { ROLE_ROUTES } from "@/lib/roles";
 import type { Role } from "@/lib/types";
 
@@ -12,6 +12,7 @@ const TAB_META: Record<string, { label: string; icon: React.ElementType }> = {
   "/worksheet": { label: "Worksheet", icon: Table2 },
   "/lists": { label: "Manage lists", icon: Settings },
   "/users": { label: "Manage users", icon: Users },
+  "/machinery": { label: "Machinery", icon: Wrench },
 };
 
 export default function TabBar({ role }: { role: Role }) {
