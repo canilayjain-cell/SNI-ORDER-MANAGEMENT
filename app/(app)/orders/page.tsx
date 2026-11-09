@@ -45,6 +45,9 @@ const FLUSH_DOOR_TYPES = [
   "Membrane Door", "Membrane Steel Beading Door", "Micro Coated Door", "UV-Membrane Door", "Custom Mica Door",
 ];
 
+// has no catalog photo, so the order must carry one
+const CUSTOM_DOOR_TYPE = "Custom Mica Door";
+
 // Read a length input in the item's chosen unit and return it in millimetres.
 function toMm(value: string, unit: Unit): number {
   const n = parseFloat(value) || 0;
@@ -110,6 +113,8 @@ export default function NewOrderPage() {
   );
   const partyIsKnown = partyOpts.some((p) => p.toLowerCase() === partyQuery);
 
+  const needsPhoto = items.some((it) => it.doorType === CUSTOM_DOOR_TYPE);
+
   function updateItem(i: number, patch: Partial<OrderItem>) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   }
@@ -166,6 +171,7 @@ export default function NewOrderPage() {
       if (!(parseInt(it.qty, 10) > 0)) { alert(`Please enter a valid quantity${tag}.`); return; }
     }
     if (!delivery) { alert("Please select a delivery date."); return; }
+    if (needsPhoto && photos.length === 0) { alert(`Please add a reference photo for the ${CUSTOM_DOOR_TYPE}.`); return; }
 
     setSaving(true);
     try {
@@ -461,7 +467,7 @@ export default function NewOrderPage() {
       </div>
 
       <div className="card">
-        <div className="card-head">Reference photos (shown to the factory floor) — optional</div>
+        <div className="card-head">Reference photos (shown to the factory floor) {needsPhoto ? <span className="req">*</span> : "— optional"}</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
           <label className="btn btn-sm">
             <Camera size={13} /> Camera
@@ -472,6 +478,7 @@ export default function NewOrderPage() {
             <input type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => handlePhotoInput(e.target.files)} />
           </label>
         </div>
+        {needsPhoto && photos.length === 0 && <span className="field-hint">A reference photo is required for {CUSTOM_DOOR_TYPE}.</span>}
         <div className="photo-grid">
           {photos.map((p, i) => (
             <div key={i} style={{ position: "relative" }}>
