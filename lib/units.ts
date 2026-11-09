@@ -11,7 +11,7 @@ export function toMm(value: string, unit: Unit): number {
 
 // The reverse, for showing a stored length in an input.
 export function fromMm(mm: number, unit: Unit): string {
-  return unit === "mm" ? String(mm) : String(Number((mm / MM_PER[unit]).toFixed(3)));
+  return String(Number((mm / MM_PER[unit]).toFixed(3)));
 }
 
 export const isCustomThickness = (value: string) => /custom/i.test(value);

@@ -4,7 +4,7 @@ import { useOrders } from "@/lib/hooks/useOrders";
 import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "@/lib/toast";
-import { fromMm } from "@/lib/units";
+import { fromMm, UNIT_LABEL, type Unit } from "@/lib/units";
 import { canCancelOrders, canEditOrders, canWorkFloor } from "@/lib/roles";
 import { deliveryDueInfo, fmtDate, orderLabel } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
@@ -12,7 +12,7 @@ import Stepper from "@/components/Stepper";
 import { usePhotoViewer } from "@/components/PhotoViewer";
 import EditOrderItem from "@/components/EditOrderItem";
 import type { Order } from "@/lib/types";
-import { ArrowUp, ArrowDown, Clock, CheckCircle2, Package, RefreshCw, ClipboardList, XCircle, Search, X, Pencil } from "lucide-react";
+import { ArrowUp, ArrowDown, Clock, CheckCircle2, Package, RefreshCw, ClipboardList, XCircle, Search, X, Pencil, Undo2 } from "lucide-react";
 
 type SortBy = "queue" | "order_new" | "order_old" | "delivery_soon" | "delivery_late";
 
@@ -28,6 +28,7 @@ export default function FloorQueuePage() {
   const canEdit = profile ? canEditOrders(profile.role) : false;
   const canCancel = profile ? canCancelOrders(profile.role) : false;
   const [editing, setEditing] = useState<Order | null>(null);
+  const [unit, setUnit] = useState<Unit>("in");
   const [sortBy, setSortBy] = useState<SortBy>("queue");
   const [party, setParty] = useState("");
   const [partyOpen, setPartyOpen] = useState(false);
@@ -71,6 +72,11 @@ export default function FloorQueuePage() {
     if (error) { toast("Could not complete order: " + error.message); return; }
     reload();
   }
+  async function undoStep(id: string) {
+    const { error } = await supabase.rpc("undo_order_step", { p_order_id: id });
+    if (error) { toast("Could not undo: " + error.message); return; }
+    reload();
+  }
   async function move(id: string, dir: "up" | "down") {
     const { error } = await supabase.rpc("resequence_order", { p_order_id: id, p_direction: dir });
     if (error) { toast("Could not reorder: " + error.message); return; }
@@ -96,6 +102,11 @@ export default function FloorQueuePage() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div className="seg">
+            <button type="button" className={unit === "mm" ? "active" : ""} onClick={() => setUnit("mm")}>MM</button>
+            <button type="button" className={unit === "in" ? "active" : ""} onClick={() => setUnit("in")}>Inches</button>
+            <button type="button" className={unit === "ft" ? "active" : ""} onClick={() => setUnit("ft")}>Ft</button>
+          </div>
           <select className="status-sel" value={sortBy} aria-label="Sort orders" onChange={(e) => setSortBy(e.target.value as SortBy)}>
             <option value="queue">Sort: Queue order</option>
             <option value="order_new">Order date: newest first</option>
@@ -167,9 +178,11 @@ export default function FloorQueuePage() {
               canReorder={canReorder}
               canEdit={canEdit}
               canCancel={canCancel}
+              unit={unit}
               onEdit={setEditing}
               onStart={startOrder}
               onComplete={completeOrder}
+              onUndo={undoStep}
               onMove={move}
               onCancel={cancelOrder}
               onViewPhotos={open}
@@ -184,7 +197,7 @@ export default function FloorQueuePage() {
 }
 
 function FloorTicket({
-  order, isFirst, isLast, canAct, canReorder, canEdit, canCancel, onEdit, onStart, onComplete, onMove, onCancel, onViewPhotos,
+  order, isFirst, isLast, canAct, canReorder, canEdit, canCancel, unit, onEdit, onStart, onComplete, onUndo, onMove, onCancel, onViewPhotos,
 }: {
   order: Order;
   isFirst: boolean;
@@ -193,9 +206,11 @@ function FloorTicket({
   canReorder: boolean;
   canEdit: boolean;
   canCancel: boolean;
+  unit: Unit;
   onEdit: (order: Order) => void;
   onStart: (id: string) => void;
   onComplete: (id: string) => void;
+  onUndo: (id: string) => void;
   onMove: (id: string, dir: "up" | "down") => void;
   onCancel: (id: string, orderNo: string) => void;
   onViewPhotos: (photos: string[] | undefined) => void;
@@ -222,7 +237,7 @@ function FloorTicket({
           </div>
         )}
         <div className="ticket-sub">
-          {order.panel} · {order.thick}{order.door_type && ` · ${order.door_type}`}{order.design_number && ` · Design no. ${order.design_number}`} · {fromMm(order.length_mm, "in")}×{fromMm(order.breadth_mm, "in")} in · Qty {order.qty}{" "}
+          {order.panel} · {order.thick}{order.door_type && ` · ${order.door_type}`}{order.design_number && ` · Design no. ${order.design_number}`} · {fromMm(order.length_mm, unit)}×{fromMm(order.breadth_mm, unit)} {UNIT_LABEL[unit]} · Qty {order.qty}{" "}
           <span className={`badge ${order.design === "3D" ? "bb" : "bt"}`} style={{ marginLeft: 2 }}>{order.design}</span>
         </div>
         <div className="ticket-meta">
@@ -243,13 +258,18 @@ function FloorTicket({
           </div>
         )}
         {canAct && order.status === "pending" && (
-          <button className="btn btn-sm btn-teal" onClick={() => onStart(order.id)}>
+          <button className="btn btn-sm btn-teal" onClick={() => { if (window.confirm(`Start ${orderLabel(order)} for ${order.party}?`)) onStart(order.id); }}>
             <Clock size={13} /> Start
           </button>
         )}
         {canAct && order.status === "in_progress" && (
-          <button className="btn btn-sm btn-primary" onClick={() => onComplete(order.id)}>
+          <button className="btn btn-sm btn-primary" onClick={() => { if (window.confirm(`Mark ${orderLabel(order)} for ${order.party} as completed?`)) onComplete(order.id); }}>
             <CheckCircle2 size={13} /> Mark completed
+          </button>
+        )}
+        {canAct && order.status === "in_progress" && (
+          <button className="btn btn-sm" onClick={() => { if (window.confirm(`Move ${orderLabel(order)} back to Pending?`)) onUndo(order.id); }}>
+            <Undo2 size={13} /> Back to Pending
           </button>
         )}
         {canEdit && (

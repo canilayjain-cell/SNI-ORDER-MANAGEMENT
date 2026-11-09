@@ -11,7 +11,7 @@ import StatusBadge from "@/components/StatusBadge";
 import Stepper from "@/components/Stepper";
 import { usePhotoViewer } from "@/components/PhotoViewer";
 import type { Order } from "@/lib/types";
-import { Camera, Truck, Package, RefreshCw } from "lucide-react";
+import { Camera, Truck, Package, RefreshCw, Undo2 } from "lucide-react";
 
 export default function DispatchPage() {
   const { orders, reload } = useOrders();
@@ -47,6 +47,12 @@ export default function DispatchPage() {
     }
   }
 
+  async function undoComplete(id: string) {
+    const { error } = await supabase.rpc("undo_order_step", { p_order_id: id });
+    if (error) { toast("Could not undo: " + error.message); return; }
+    reload();
+  }
+
   async function confirmDispatch(id: string) {
     const { error } = await supabase.rpc("confirm_dispatch", { p_order_id: id });
     if (error) { toast("Could not confirm dispatch: " + error.message); return; }
@@ -76,7 +82,7 @@ export default function DispatchPage() {
       ) : (
         <div className="ticket-list">
           {ready.map((o) => (
-            <DispatchTicket key={o.id} order={o} onUpload={handleDispatchPhoto} onConfirm={confirmDispatch} onViewPhotos={open} />
+            <DispatchTicket key={o.id} order={o} onUpload={handleDispatchPhoto} onConfirm={confirmDispatch} onUndo={undoComplete} onViewPhotos={open} />
           ))}
         </div>
       )}
@@ -103,11 +109,12 @@ export default function DispatchPage() {
 }
 
 function DispatchTicket({
-  order, onUpload, onConfirm, onViewPhotos,
+  order, onUpload, onConfirm, onUndo, onViewPhotos,
 }: {
   order: Order;
   onUpload: (id: string, file: File) => void;
   onConfirm: (id: string) => void;
+  onUndo: (id: string) => void;
   onViewPhotos: (photos: string[] | undefined) => void;
 }) {
   return (
@@ -147,6 +154,9 @@ function DispatchTicket({
             />
           </label>
         )}
+        <button className="btn btn-sm" onClick={() => { if (window.confirm(`Move ${orderLabel(order)} back to In Progress?`)) onUndo(order.id); }}>
+          <Undo2 size={13} /> Back to In Progress
+        </button>
         <button className="btn btn-sm btn-primary" disabled={!order.dispatch_photo_url} onClick={() => onConfirm(order.id)}>
           Confirm dispatch
         </button>
