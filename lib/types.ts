@@ -91,5 +91,6 @@ export interface RawMaterial {
   notes: string | null;
   status: RawMaterialStatus;
   requested_by_name: string | null;
+  voice_note_url: string | null;
   created_at: string;
 }
