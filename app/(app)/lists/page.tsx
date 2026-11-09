@@ -9,9 +9,10 @@ import { Upload } from "lucide-react";
 import type { ListType, OptionRow } from "@/lib/types";
 
 export default function ManageListsPage() {
-  const { rows, addOption, setDesignPhoto, removeOption, reload } = useOptionLists();
+  const { rows, addOption, setDesignPhoto, setDesignDoorType, removeOption, reload } = useOptionLists();
   const { open, viewer } = usePhotoViewer();
   const [uploading, setUploading] = useState(false);
+  const [uploadDoorType, setUploadDoorType] = useState("");
   const [inThick, setInThick] = useState("");
   const [inPanel, setInPanel] = useState("");
   const [inParty, setInParty] = useState("");
@@ -36,10 +37,10 @@ export default function ManageListsPage() {
 
   // resizes, stores under a new random name (orders keep the old file) and
   // saves it against the design number
-  async function saveDesignPhoto(value: string, file: File) {
+  async function saveDesignPhoto(value: string, file: File, doorType?: string) {
     const { blob } = await resizeImageToBlob(file, 1600, 0.8);
     const url = await uploadToBucket("design-photos", `${crypto.randomUUID()}.jpg`, blob);
-    const err = await setDesignPhoto(value, url);
+    const err = await setDesignPhoto(value, url, doorType);
     if (err) throw new Error(err.message);
   }
 
@@ -52,7 +53,7 @@ export default function ManageListsPage() {
       const name = f.name.replace(/\.[^.]+$/, "").trim();
       const existing = designNoRows.find((r) => r.value.toLowerCase() === name.toLowerCase());
       try {
-        await saveDesignPhoto(existing?.value ?? name, f);
+        await saveDesignPhoto(existing?.value ?? name, f, uploadDoorType);
       } catch {
         failed.push(f.name);
       }
@@ -61,6 +62,11 @@ export default function ManageListsPage() {
     setUploading(false);
     const done = files.length - failed.length;
     toast(failed.length ? `${done} saved. Could not save: ${failed.join(", ")}` : `${done} design photo${done === 1 ? "" : "s"} saved`);
+  }
+
+  async function handleDesignDoorType(row: OptionRow, doorType: string) {
+    const err = await setDesignDoorType(row.id, doorType);
+    if (err) toast("Could not update door type: " + err.message);
   }
 
   async function handleSinglePhoto(row: OptionRow, file: File | undefined) {
@@ -124,7 +130,12 @@ export default function ManageListsPage() {
             Name each photo after its design number, e.g. <b>D-101.jpg</b>, and upload them together. A new number is added
             to the list; an existing number gets its photo replaced.
           </p>
-          <label className="btn btn-sm" style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <select className="status-sel" value={uploadDoorType} aria-label="Door type for uploaded photos" onChange={(e) => setUploadDoorType(e.target.value)}>
+            <option value="">Door type for these photos…</option>
+            {doorTypeRows.map((d) => <option key={d.id} value={d.value}>{d.value}</option>)}
+          </select>
+          <label className="btn btn-sm">
             {uploading ? <span className="spin" /> : <Upload size={13} />}
             {uploading ? "Uploading..." : "Upload photos"}
             <input
@@ -136,6 +147,7 @@ export default function ManageListsPage() {
               onChange={(e) => { handleBulkUpload(e.target.files); e.target.value = ""; }}
             />
           </label>
+          </div>
           {designNoRows.length === 0 ? (
             <div className="mgr-empty">No items yet.</div>
           ) : (
@@ -153,6 +165,10 @@ export default function ManageListsPage() {
                     <span style={{ fontSize: 11, color: "var(--g400)" }}>No photo</span>
                   )}
                   <span style={{ flex: 1, minWidth: 0 }}>{r.value}</span>
+                  <select className="status-sel" value={r.door_type || ""} aria-label={`Door type for ${r.value}`} onChange={(e) => handleDesignDoorType(r, e.target.value)}>
+                    <option value="">Any door type</option>
+                    {doorTypeRows.map((d) => <option key={d.id} value={d.value}>{d.value}</option>)}
+                  </select>
                   <label className="btn btn-sm" style={{ padding: "4px 8px" }}>
                     {r.photo_url ? "Replace" : "Add photo"}
                     <input

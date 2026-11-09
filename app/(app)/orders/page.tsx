@@ -62,7 +62,7 @@ function itemSizeInfo(item: OrderItem) {
 
 export default function NewOrderPage() {
   const { profile } = useAuth();
-  const { thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designPhotos, addOption } = useOptionLists();
+  const { thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designNumbersFor, designPhotos, addOption } = useOptionLists();
   const router = useRouter();
   const supabase = createClient();
 
@@ -332,7 +332,14 @@ export default function NewOrderPage() {
             <div className="g2">
               <div className="field">
                 <label>Door type</label>
-                <select value={it.doorType} onChange={(e) => updateItem(idx, { doorType: e.target.value })}>
+                <select
+                  value={it.doorType}
+                  onChange={(e) => {
+                    const doorType = e.target.value;
+                    // a design from the previous door type can't stay selected
+                    updateItem(idx, { doorType, designNumber: designNumbersFor(doorType).includes(it.designNumber) ? it.designNumber : "" });
+                  }}
+                >
                   <option value="">Select...</option>
                   {doorTypeOpts.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
@@ -344,7 +351,7 @@ export default function NewOrderPage() {
                 <label>Design number</label>
                 <select value={it.designNumber} onChange={(e) => updateItem(idx, { designNumber: e.target.value })}>
                   <option value="">Select...</option>
-                  {designNumberOpts.map((d) => <option key={d} value={d}>{d}</option>)}
+                  {designNumbersFor(it.doorType).map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
                 {designNumberOpts.length === 0 && (
                   <span className="field-hint">No design numbers added yet — an admin can add them under Manage lists.</span>

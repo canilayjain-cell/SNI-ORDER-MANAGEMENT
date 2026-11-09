@@ -43,6 +43,11 @@ export function useOptionLists() {
   const salespersonOpts = rows.filter((r) => r.list_type === "salesperson").map((r) => r.value);
   const doorTypeOpts = rows.filter((r) => r.list_type === "door_type").map((r) => r.value);
   const designNumberOpts = rows.filter((r) => r.list_type === "design_number").map((r) => r.value);
+  // no door type picked yet, or a design not linked to one: always offered
+  const designNumbersFor = (doorType: string) =>
+    rows
+      .filter((r) => r.list_type === "design_number" && (!doorType || !r.door_type || r.door_type === doorType))
+      .map((r) => r.value);
   const designPhotos: Record<string, string> = {};
   rows.forEach((r) => { if (r.list_type === "design_number" && r.photo_url) designPhotos[r.value] = r.photo_url; });
 
@@ -54,11 +59,17 @@ export function useOptionLists() {
 
   // creates the design number if it isn't in the list yet; callers reload
   // once when they're done, since a bulk upload calls this per file
-  async function setDesignPhoto(value: string, photo_url: string) {
+  async function setDesignPhoto(value: string, photo_url: string, door_type?: string) {
     const { error } = await supabase
       .from("option_lists")
-      .upsert({ list_type: "design_number", value, photo_url }, { onConflict: "list_type,value" });
+      .upsert({ list_type: "design_number", value, photo_url, ...(door_type ? { door_type } : {}) }, { onConflict: "list_type,value" });
     return error ? { ...error, message: friendlyOptionError(error, "design_number") } : null;
+  }
+
+  async function setDesignDoorType(id: string, door_type: string) {
+    const { error } = await supabase.from("option_lists").update({ door_type: door_type || null }).eq("id", id);
+    if (!error) await load();
+    return error;
   }
 
   async function removeOption(id: string) {
@@ -67,5 +78,5 @@ export function useOptionLists() {
     return error;
   }
 
-  return { rows, thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designPhotos, loading, addOption, setDesignPhoto, removeOption, reload: load };
+  return { rows, thickOpts, panelOpts, partyOpts, salespersonOpts, doorTypeOpts, designNumberOpts, designNumbersFor, designPhotos, loading, addOption, setDesignPhoto, setDesignDoorType, removeOption, reload: load };
 }

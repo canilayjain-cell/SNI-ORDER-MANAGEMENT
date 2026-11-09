@@ -62,6 +62,7 @@ export interface OptionRow {
   list_type: ListType;
   value: string;
   photo_url: string | null;
+  door_type: string | null;
   created_at: string;
 }
 
