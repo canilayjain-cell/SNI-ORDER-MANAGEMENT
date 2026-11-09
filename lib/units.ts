@@ -13,3 +13,18 @@ export function toMm(value: string, unit: Unit): number {
 export function fromMm(mm: number, unit: Unit): string {
   return unit === "mm" ? String(mm) : String(Number((mm / MM_PER[unit]).toFixed(3)));
 }
+
+export const isCustomThickness = (value: string) => /custom/i.test(value);
+
+// Asks for a thickness in mm and returns it in the list's format ("22 MM"),
+// or null if the box was dismissed or the entry isn't a positive number.
+export function askCustomThickness(): string | null {
+  const input = window.prompt("Enter the custom thickness in MM (numbers only):");
+  if (input === null) return null;
+  const mm = Number(input.trim());
+  if (!input.trim() || !(mm > 0)) {
+    alert("Please enter a valid number, for example 22.");
+    return null;
+  }
+  return `${mm} MM`;
+}

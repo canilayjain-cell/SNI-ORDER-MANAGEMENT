@@ -8,7 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { usePhotoViewer } from "@/components/PhotoViewer";
 import SearchSelect from "@/components/SearchSelect";
 import { toast } from "@/lib/toast";
-import { toMm, UNIT_LABEL, type Unit } from "@/lib/units";
+import { askCustomThickness, isCustomThickness, toMm, UNIT_LABEL, type Unit } from "@/lib/units";
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, Save, RotateCcw, X, Plus, Trash2 } from "lucide-react";
 import type { FloorManager } from "@/lib/types";
@@ -314,8 +314,15 @@ export default function NewOrderPage() {
             <div className="g2">
               <div className="field">
                 <label>Thickness <span className="req">*</span></label>
-                <select value={it.thick} onChange={(e) => updateItem(idx, { thick: e.target.value })}>
+                <select
+                  value={it.thick}
+                  onChange={(e) => {
+                    const thick = isCustomThickness(e.target.value) ? askCustomThickness() : e.target.value;
+                    if (thick !== null) updateItem(idx, { thick });
+                  }}
+                >
                   <option value="">Select...</option>
+                  {it.thick && !thickOpts.includes(it.thick) && <option value={it.thick}>{it.thick}</option>}
                   {thickOpts.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>

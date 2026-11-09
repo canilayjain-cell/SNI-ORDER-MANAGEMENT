@@ -20,6 +20,8 @@ function friendlyOptionError(
   }
 }
 
+const PAGE_SIZE = 1000;
+
 export function useOptionLists() {
   const [rows, setRows] = useState<OptionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,8 +29,19 @@ export function useOptionLists() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from("option_lists").select("*").order("value");
-    setRows(data || []);
+    // the API returns at most PAGE_SIZE rows per request
+    const all: OptionRow[] = [];
+    for (;;) {
+      const { data } = await supabase
+        .from("option_lists")
+        .select("*")
+        .order("value")
+        .order("id")
+        .range(all.length, all.length + PAGE_SIZE - 1);
+      all.push(...((data as OptionRow[]) || []));
+      if (!data || data.length < PAGE_SIZE) break;
+    }
+    setRows(all);
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

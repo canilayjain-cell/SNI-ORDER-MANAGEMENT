@@ -6,7 +6,7 @@ import { toast } from "@/lib/toast";
 import { orderLabel } from "@/lib/format";
 import { resizeImageToBlob } from "@/lib/image";
 import { uploadToBucket } from "@/lib/storage";
-import { fromMm, toMm, UNIT_LABEL, type Unit } from "@/lib/units";
+import { askCustomThickness, fromMm, isCustomThickness, toMm, UNIT_LABEL, type Unit } from "@/lib/units";
 import SearchSelect from "@/components/SearchSelect";
 import type { FloorManager, Order } from "@/lib/types";
 import { Camera, ImagePlus, Save, X } from "lucide-react";
@@ -168,7 +168,13 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
         <div className="g2">
           <div className="field">
             <label>Thickness <span className="req">*</span></label>
-            <select value={form.thick} onChange={(e) => patch({ thick: e.target.value })}>
+            <select
+              value={form.thick}
+              onChange={(e) => {
+                const thick = isCustomThickness(e.target.value) ? askCustomThickness() : e.target.value;
+                if (thick !== null) patch({ thick });
+              }}
+            >
               {withCurrent(form.thick, thickOpts).map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
