@@ -21,7 +21,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div>
       <Nav profile={profile} />
-      <TabBar role={profile.role} />
+      <TabBar role={profile.role} canPlaceOrders={profile.can_place_orders} />
       {children}
       <Toast />
     </div>

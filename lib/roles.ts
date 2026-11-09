@@ -40,6 +40,13 @@ export function canExport(role: Role): boolean {
   return role === "admin";
 }
 
-export function isRoleAllowed(role: Role, path: string): boolean {
-  return (ROLE_ROUTES[role] || []).some((r) => path === r || path.startsWith(r + "/"));
+// A login's role routes, plus New order if that login was individually
+// granted it (profiles.can_place_orders).
+export function routesFor(role: Role, canPlaceOrders = false): string[] {
+  const routes = ROLE_ROUTES[role] || [];
+  return canPlaceOrders && !routes.includes("/orders") ? ["/orders", ...routes] : routes;
+}
+
+export function isRoleAllowed(role: Role, path: string, canPlaceOrders = false): boolean {
+  return routesFor(role, canPlaceOrders).some((r) => path === r || path.startsWith(r + "/"));
 }

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { ROLE_ROUTES, DEFAULT_ROUTE, isRoleAllowed } from "@/lib/roles";
+import { DEFAULT_ROUTE, isRoleAllowed } from "@/lib/roles";
 import type { Role } from "@/lib/types";
 
 export async function middleware(request: NextRequest) {
@@ -48,9 +48,9 @@ export async function middleware(request: NextRequest) {
   // This is a UX convenience redirect only; the actual security boundary
   // is the row-level-security policies in supabase/schema.sql.
   if (user && !isLoginRoute && path !== "/") {
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    const { data: profile } = await supabase.from("profiles").select("role, can_place_orders").eq("id", user.id).single();
     const role = (profile?.role as Role) || "sales";
-    if (!isRoleAllowed(role, path)) {
+    if (!isRoleAllowed(role, path, profile?.can_place_orders)) {
       const url = request.nextUrl.clone();
       url.pathname = DEFAULT_ROUTE[role] || "/orders";
       return NextResponse.redirect(url);

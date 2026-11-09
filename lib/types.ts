@@ -6,6 +6,7 @@ export interface Profile {
   email: string | null;
   full_name: string | null;
   role: Role;
+  can_place_orders: boolean;
   created_at: string;
 }
 

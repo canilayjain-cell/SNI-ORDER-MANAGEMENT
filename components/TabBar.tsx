@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PlusCircle, ClipboardList, Truck, Table2, Settings, Users, Wrench, Boxes } from "lucide-react";
-import { ROLE_ROUTES } from "@/lib/roles";
+import { routesFor } from "@/lib/roles";
 import type { Role } from "@/lib/types";
 
 const TAB_META: Record<string, { label: string; icon: React.ElementType }> = {
@@ -16,9 +16,9 @@ const TAB_META: Record<string, { label: string; icon: React.ElementType }> = {
   "/raw-materials": { label: "Raw materials", icon: Boxes },
 };
 
-export default function TabBar({ role }: { role: Role }) {
+export default function TabBar({ role, canPlaceOrders }: { role: Role; canPlaceOrders?: boolean }) {
   const pathname = usePathname();
-  const tabs = ROLE_ROUTES[role] || [];
+  const tabs = routesFor(role, canPlaceOrders);
 
   return (
     <div className="tab-bar no-print">
