@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useOptionLists } from "@/lib/hooks/useOptionLists";
 import { toast } from "@/lib/toast";
-import { orderLabel } from "@/lib/format";
+import { isWpcPanel, orderLabel, PRINTING_OPTIONS } from "@/lib/format";
 import { resizeImageToBlob } from "@/lib/image";
 import { uploadToBucket } from "@/lib/storage";
 import { askCustomThickness, fromMm, isCustomThickness, toMm, UNIT_LABEL, type Unit } from "@/lib/units";
@@ -30,6 +30,7 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
     assignedTo: order.assigned_to ?? "",
     thick: order.thick,
     panel: order.panel,
+    printing: order.printing ?? "",
     doorType: order.door_type ?? "",
     designNumber: order.design_number ?? "",
     length: fromMm(order.length_mm, "in"),
@@ -79,6 +80,7 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
     if (!form.placedBy) { alert("Please select who placed this order."); return; }
     if (!form.thick) { alert("Please select thickness."); return; }
     if (!form.panel) { alert("Please select panel."); return; }
+    if (isWpcPanel(form.panel) && !form.printing) { alert("Please select printing."); return; }
     if (!(parseFloat(form.length) > 0)) { alert("Please enter a valid length."); return; }
     if (!(parseFloat(form.breadth) > 0)) { alert("Please enter a valid breadth."); return; }
     if (!(parseInt(form.qty, 10) > 0)) { alert("Please enter a valid quantity."); return; }
@@ -112,6 +114,7 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
       p_placed_by: form.placedBy,
       p_reminder_days: parseInt(form.reminderDays, 10),
       p_photo_urls: [...keptPhotos, ...uploaded],
+      p_printing: isWpcPanel(form.panel) ? form.printing : "",
     });
     setSaving(false);
     if (error) { toast("Could not save changes: " + error.message); return; }
@@ -180,11 +183,22 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
           </div>
           <div className="field">
             <label>Panel used <span className="req">*</span></label>
-            <select value={form.panel} onChange={(e) => patch({ panel: e.target.value })}>
+            <select value={form.panel} onChange={(e) => patch({ panel: e.target.value, printing: isWpcPanel(e.target.value) ? form.printing : "" })}>
               {withCurrent(form.panel, panelOpts).map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
         </div>
+        {isWpcPanel(form.panel) && (
+          <div className="g2">
+            <div className="field">
+              <label>Printing <span className="req">*</span></label>
+              <select value={form.printing} onChange={(e) => patch({ printing: e.target.value })}>
+                <option value="">Select...</option>
+                {PRINTING_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
         <div className="g2">
           <div className="field">
             <label>Door type</label>

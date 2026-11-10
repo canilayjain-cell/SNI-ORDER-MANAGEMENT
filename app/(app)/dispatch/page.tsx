@@ -132,7 +132,7 @@ function DispatchTicket({
           <StatusBadge status={order.status} />
         </div>
         <div className="ticket-title">{order.party}</div>
-        <div className="ticket-sub">{order.panel} · {order.thick}{order.door_type && ` · ${order.door_type}`}{order.design_number && ` · Design no. ${order.design_number}`} · {fromMm(order.length_mm, "in")}×{fromMm(order.breadth_mm, "in")} in · Qty {order.qty}</div>
+        <div className="ticket-sub">{order.panel}{order.printing && ` (printing: ${order.printing})`} · {order.thick}{order.door_type && ` · ${order.door_type}`}{order.design_number && ` · Design no. ${order.design_number}`} · {fromMm(order.length_mm, "in")}×{fromMm(order.breadth_mm, "in")} in · Qty {order.qty}</div>
         <div className="ticket-meta">
           Completed {fmtDateTime(order.completed_at)}{order.assigned_to_name && ` · Assigned to ${order.assigned_to_name}`}
         </div>

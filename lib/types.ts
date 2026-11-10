@@ -29,6 +29,7 @@ export interface Order {
   assigned_to_name: string | null;
   thick: string;
   panel: string;
+  printing: string | null;
   door_type: string | null;
   design_number: string | null;
   design_photo_url: string | null;
@@ -95,5 +96,8 @@ export interface RawMaterial {
   status: RawMaterialStatus;
   requested_by_name: string | null;
   voice_note_url: string | null;
+  photo_url: string | null;
+  given_by_name: string | null;
+  assigned_to_name: string | null;
   created_at: string;
 }

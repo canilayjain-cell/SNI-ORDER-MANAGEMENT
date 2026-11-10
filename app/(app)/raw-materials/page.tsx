@@ -4,9 +4,11 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/components/AuthProvider";
 import { toast } from "@/lib/toast";
 import { fmtDate } from "@/lib/format";
+import { resizeImageToBlob } from "@/lib/image";
+import { usePhotoViewer } from "@/components/PhotoViewer";
 import { uploadToBucket } from "@/lib/storage";
-import type { RawMaterial, RawMaterialStatus } from "@/lib/types";
-import { Mic, Plus, RefreshCw, Square, Trash2 } from "lucide-react";
+import type { FloorManager, RawMaterial, RawMaterialStatus } from "@/lib/types";
+import { Camera, ImagePlus, Mic, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
 
 const STATUSES: { value: RawMaterialStatus; label: string; badge: string }[] = [
   { value: "order_placed", label: "Order placed", badge: "bn" },
@@ -16,6 +18,7 @@ const STATUSES: { value: RawMaterialStatus; label: string; badge: string }[] = [
 const COMPLETED = "completed";
 const UNITS = ["Pcs", "Sheets", "Kg", "Ltr", "Mtr", "Sqft", "Box"];
 const VOICE_BUCKET = "voice-notes";
+const PHOTO_BUCKET = "raw-material-photos";
 const MAX_VOICE_SECONDS = 120;
 // mp4 first: it plays on every phone; webm is the fallback for older Chrome
 const VOICE_FORMATS = [
@@ -38,6 +41,12 @@ export default function RawMaterialsPage() {
   const [neededBy, setNeededBy] = useState("");
   const [notes, setNotes] = useState("");
   const [voice, setVoice] = useState<VoiceNote | null>(null);
+  const [photo, setPhoto] = useState<{ blob: Blob; previewUrl: string } | null>(null);
+  const [staff, setStaff] = useState<FloorManager[]>([]);
+  const [givenBy, setGivenBy] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
+  const { open, viewer } = usePhotoViewer();
+  const myName = profile?.full_name || profile?.email || "";
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from("raw_materials").select("*").order("created_at", { ascending: false });
@@ -49,11 +58,42 @@ export default function RawMaterialsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    supabase.rpc("list_staff").then(({ data, error }) => {
+      if (error) { toast("Could not load staff names: " + error.message); return; }
+      setStaff((data as FloorManager[]) || []);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // whoever is signed in is usually the one giving the order
+  useEffect(() => { if (myName) setGivenBy((g) => g || myName); }, [myName]);
+
+  async function pickPhoto(file: File | undefined) {
+    if (!file) return;
+    try {
+      setPhoto(await resizeImageToBlob(file, 1000, 0.72));
+    } catch {
+      toast("Could not load that photo");
+    }
+  }
+
   async function addRow() {
     const name = material.trim();
     if (!name) { alert("Please enter the raw material."); return; }
     if (!(parseFloat(quantity) > 0)) { alert("Please enter a valid quantity."); return; }
+    if (!givenBy) { alert("Please select who gave the order."); return; }
     setSaving(true);
+    let photoUrl: string | null = null;
+    if (photo) {
+      try {
+        photoUrl = await uploadToBucket(PHOTO_BUCKET, `${profile?.id}/${crypto.randomUUID()}.jpg`, photo.blob);
+      } catch (e: any) {
+        setSaving(false);
+        toast("Could not save photo: " + e.message);
+        return;
+      }
+    }
     let voiceUrl: string | null = null;
     if (voice) {
       try {
@@ -72,12 +112,17 @@ export default function RawMaterialsPage() {
       notes: notes.trim() || null,
       requested_by_name: profile?.full_name || profile?.email || null,
       voice_note_url: voiceUrl,
+      photo_url: photoUrl,
+      given_by_name: givenBy,
+      assigned_to_name: assignedTo || null,
     });
     setSaving(false);
     if (error) { toast("Could not add: " + error.message); return; }
     setMaterial(""); setQuantity(""); setNeededBy(""); setNotes("");
     if (voice) URL.revokeObjectURL(voice.previewUrl);
     setVoice(null);
+    setPhoto(null);
+    setAssignedTo("");
     toast(`"${name}" added`);
     load();
   }
@@ -90,6 +135,8 @@ export default function RawMaterialsPage() {
       if (error) { toast("Could not complete: " + error.message); return; }
       const voicePath = row.voice_note_url?.split(`/${VOICE_BUCKET}/`)[1];
       if (voicePath) await supabase.storage.from(VOICE_BUCKET).remove([decodeURIComponent(voicePath)]);
+      const photoPath = row.photo_url?.split(`/${PHOTO_BUCKET}/`)[1];
+      if (photoPath) await supabase.storage.from(PHOTO_BUCKET).remove([decodeURIComponent(photoPath)]);
       toast(`"${row.material}" completed and removed`);
       load();
       return;
@@ -122,6 +169,22 @@ export default function RawMaterialsPage() {
         </div>
         <div className="g2">
           <div className="field">
+            <label>Order given by <span className="req">*</span></label>
+            <select value={givenBy} onChange={(e) => setGivenBy(e.target.value)}>
+              <option value="">Select...</option>
+              {Array.from(new Set([givenBy, ...staff.map((s) => s.name)].filter(Boolean))).map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label>Order assigned to</label>
+            <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+              <option value="">Select...</option>
+              {staff.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="g2">
+          <div className="field">
             <label>Needed by</label>
             <input type="date" value={neededBy} onChange={(e) => setNeededBy(e.target.value)} />
           </div>
@@ -129,6 +192,33 @@ export default function RawMaterialsPage() {
             <label>Notes</label>
             <input type="text" placeholder="Supplier, size, colour..." value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
+        </div>
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>Photo of the material</label>
+          {photo ? (
+            <div style={{ position: "relative", alignSelf: "flex-start" }}>
+              <img src={photo.previewUrl} className="photo-thumb" alt="Material" />
+              <button
+                type="button"
+                aria-label="Remove photo"
+                onClick={() => setPhoto(null)}
+                style={{ position: "absolute", top: -6, right: -6, background: "#1a1a18", color: "#fff", border: "none", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+              >
+                <X size={11} />
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: 8 }}>
+              <label className="btn btn-sm">
+                <Camera size={13} /> Camera
+                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => { pickPhoto(e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+              <label className="btn btn-sm">
+                <ImagePlus size={13} /> Gallery
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { pickPhoto(e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+            </div>
+          )}
         </div>
         <VoiceRecorder value={voice} onChange={setVoice} />
         <button className="btn btn-primary" onClick={addRow} disabled={saving}>
@@ -161,13 +251,23 @@ export default function RawMaterialsPage() {
           <div className="mgr-list" style={{ maxHeight: "none" }}>
             {rows.map((r) => (
               <div className="mgr-item" key={r.id}>
+                {r.photo_url && (
+                  <img
+                    src={r.photo_url}
+                    alt={r.material}
+                    title="View photo"
+                    onClick={() => open([r.photo_url as string])}
+                    style={{ width: 48, height: 48, objectFit: "cover", borderRadius: "var(--r-sm)", cursor: "zoom-in", flexShrink: 0 }}
+                  />
+                )}
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <b>{r.material}</b> · {r.quantity} {r.unit}
                   <br />
                   <span style={{ fontSize: 11, color: "var(--g600)" }}>
                     {[
                       fmtDate(r.created_at),
-                      r.requested_by_name && `by ${r.requested_by_name}`,
+                      (r.given_by_name || r.requested_by_name) && `given by ${r.given_by_name || r.requested_by_name}`,
+                      r.assigned_to_name && `assigned to ${r.assigned_to_name}`,
                       r.needed_by && `needed by ${fmtDate(r.needed_by)}`,
                       r.notes,
                     ].filter(Boolean).join(" · ")}
@@ -190,6 +290,7 @@ export default function RawMaterialsPage() {
           </div>
         )}
       </div>
+      {viewer}
     </div>
   );
 }

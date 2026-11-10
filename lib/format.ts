@@ -58,3 +58,7 @@ export function deliveryDueInfo(deliveryStr?: string | null): { css: CSSProperti
   const label = diff > 0 ? `in ${diff}d` : diff === 0 ? "today" : "overdue";
   return { css, label };
 }
+
+// WPC panels get a printing choice on each item
+export const isWpcPanel = (panel: string | null) => !!panel && /wpc/i.test(panel);
+export const PRINTING_OPTIONS = ["Single side", "Double side", "None"];

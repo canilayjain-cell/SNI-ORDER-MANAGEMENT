@@ -256,7 +256,7 @@ function FloorTicket({
           </div>
         )}
         <div className="ticket-sub">
-          {order.panel} · {order.thick}{order.door_type && ` · ${order.door_type}`}{order.design_number && ` · Design no. ${order.design_number}`} · {fromMm(order.length_mm, unit)}×{fromMm(order.breadth_mm, unit)} {UNIT_LABEL[unit]} · Qty {order.qty}{" "}
+          {order.panel}{order.printing && ` (printing: ${order.printing})`} · {order.thick}{order.door_type && ` · ${order.door_type}`}{order.design_number && ` · Design no. ${order.design_number}`} · {fromMm(order.length_mm, unit)}×{fromMm(order.breadth_mm, unit)} {UNIT_LABEL[unit]} · Qty {order.qty}{" "}
           <span className={`badge ${order.design === "3D" ? "bb" : "bt"}`} style={{ marginLeft: 2 }}>{order.design}</span>
         </div>
         <div className="ticket-meta">

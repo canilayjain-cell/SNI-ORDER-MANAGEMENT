@@ -8,6 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { usePhotoViewer } from "@/components/PhotoViewer";
 import SearchSelect from "@/components/SearchSelect";
 import { toast } from "@/lib/toast";
+import { isWpcPanel, PRINTING_OPTIONS } from "@/lib/format";
 import { askCustomThickness, isCustomThickness, toMm, UNIT_LABEL, type Unit } from "@/lib/units";
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, Save, RotateCcw, X, Plus, Trash2 } from "lucide-react";
@@ -18,6 +19,7 @@ interface FormPhoto { blob: Blob; previewUrl: string }
 interface OrderItem {
   thick: string;
   panel: string;
+  printing: string;
   assignedTo: string;
   photos: FormPhoto[];
   notes: string;
@@ -33,7 +35,7 @@ interface OrderItem {
 // 1 sq ft = 92903.04 sq mm
 const SQMM_PER_SQFT = 92903.04;
 
-const blankItem = (): OrderItem => ({ assignedTo: "", photos: [], notes: "", thick: "", panel: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
+const blankItem = (): OrderItem => ({ assignedTo: "", photos: [], notes: "", thick: "", panel: "", printing: "", doorType: "", designNumber: "", length: "", breadth: "", qty: "1", unit: "in", design: "2D" });
 
 function itemSizeInfo(item: OrderItem) {
   const lmm = toMm(item.length, item.unit);
@@ -142,6 +144,7 @@ export default function NewOrderPage() {
       if (!it.assignedTo) { alert(`Please select the floor manager this is assigned to${tag}.`); return; }
       if (!it.thick) { alert(`Please select thickness${tag}.`); return; }
       if (!it.panel) { alert(`Please select panel${tag}.`); return; }
+      if (isWpcPanel(it.panel) && !it.printing) { alert(`Please select printing${tag}.`); return; }
       if (!(parseFloat(it.length) > 0)) { alert(`Please enter a valid length${tag}.`); return; }
       if (!(parseFloat(it.breadth) > 0)) { alert(`Please enter a valid breadth${tag}.`); return; }
       if (!(parseInt(it.qty, 10) > 0)) { alert(`Please enter a valid quantity${tag}.`); return; }
@@ -185,6 +188,7 @@ export default function NewOrderPage() {
           notes: it.notes.trim(),
           thick: it.thick,
           panel: it.panel,
+          printing: isWpcPanel(it.panel) ? it.printing : "",
           door_type: it.doorType,
           design_number: it.designNumber,
           length: toMm(it.length, it.unit),
@@ -331,12 +335,23 @@ export default function NewOrderPage() {
               </div>
               <div className="field">
                 <label>Panel used <span className="req">*</span></label>
-                <select value={it.panel} onChange={(e) => updateItem(idx, { panel: e.target.value })}>
+                <select value={it.panel} onChange={(e) => updateItem(idx, { panel: e.target.value, printing: isWpcPanel(e.target.value) ? it.printing : "" })}>
                   <option value="">Select...</option>
                   {panelOpts.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
             </div>
+            {isWpcPanel(it.panel) && (
+              <div className="g2">
+                <div className="field">
+                  <label>Printing <span className="req">*</span></label>
+                  <select value={it.printing} onChange={(e) => updateItem(idx, { printing: e.target.value })}>
+                    <option value="">Select...</option>
+                    {PRINTING_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
             <div className="g2">
               <div className="field">
                 <label>Door type</label>

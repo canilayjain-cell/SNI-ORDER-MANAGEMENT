@@ -20,7 +20,7 @@ export default function PrintDoc({ orders }: { orders: Order[] }) {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 18 }}>
             {[
-              ["Party", o.party], ["Placed by", o.placed_by], ["Assigned to", o.assigned_to_name], ["Design", o.design], ["Thickness", o.thick], ["Panel", o.panel], ["Door type", o.door_type], ["Design no.", o.design_number],
+              ["Party", o.party], ["Placed by", o.placed_by], ["Assigned to", o.assigned_to_name], ["Design", o.design], ["Thickness", o.thick], ["Panel", o.panel], ["Printing", o.printing], ["Door type", o.door_type], ["Design no.", o.design_number],
               ["Size", `${fromMm(o.length_mm, "in")}×${fromMm(o.breadth_mm, "in")} in`], ["Qty", String(o.qty)], ["Total area", `${o.total_sqft} sqft`],
               ["Delivery", fmtDate(o.delivery_date)], ["Reminder", fmtDate(o.reminder_date)], ["Order date", fmtDate(o.created_at)],
             ].map(([l, v]) => (

@@ -71,12 +71,12 @@ export default function WorksheetPage() {
   function exportCSV() {
     if (!orders.length) { toast("No orders to export"); return; }
     const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const header = ["Order No", "Item", "Order Date", "Party", "Placed By", "Assigned To", "Thickness", "Panel", "Door Type", "Design No", "Length(mm)", "Breadth(mm)", "Qty",
+    const header = ["Order No", "Item", "Order Date", "Party", "Placed By", "Assigned To", "Thickness", "Panel", "Printing", "Door Type", "Design No", "Length(mm)", "Breadth(mm)", "Qty",
       "Total Area(sqft)", "Design", "Delivery", "Status", "In Progress At", "Completed At", "Dispatched At",
       "Production Time", "Dispatch Lead Time", "Cancelled At", "Cancel Reason", "Notes"];
     const rows = orders.map((o) => [
       o.order_no, o.line_count > 1 ? `${o.line_no}/${o.line_count}` : "",
-      fmtDate(o.created_at), q(o.party), q(o.placed_by), q(o.assigned_to_name), o.thick, o.panel, q(o.door_type), q(o.design_number), o.length_mm, o.breadth_mm, o.qty,
+      fmtDate(o.created_at), q(o.party), q(o.placed_by), q(o.assigned_to_name), o.thick, o.panel, q(o.printing), q(o.door_type), q(o.design_number), o.length_mm, o.breadth_mm, o.qty,
       o.total_sqft, o.design, fmtDate(o.delivery_date), STATUS_LABEL[o.status],
       fmtDateTime(o.in_progress_at), fmtDateTime(o.completed_at), fmtDateTime(o.dispatched_at),
       fmtDuration(o.in_progress_at, o.completed_at), fmtDuration(o.created_at, o.dispatched_at),
@@ -215,7 +215,7 @@ export default function WorksheetPage() {
                         {o.placed_by && <><br /><span style={{ fontSize: 11, color: "var(--g600)" }}>by {o.placed_by}</span></>}
                         {o.assigned_to_name && <><br /><span style={{ fontSize: 11, color: "var(--g600)" }}>assigned to {o.assigned_to_name}</span></>}
                       </td>
-                      <td style={{ fontSize: 12 }}>{o.panel}<br /><span style={{ color: "var(--g600)" }}>{o.thick}</span>{(o.door_type || o.design_number) && <><br /><span style={{ color: "var(--g600)" }}>{[o.door_type, o.design_number && `Design no. ${o.design_number}`].filter(Boolean).join(" · ")}</span></>}</td>
+                      <td style={{ fontSize: 12 }}>{o.panel}{o.printing && ` (printing: ${o.printing})`}<br /><span style={{ color: "var(--g600)" }}>{o.thick}</span>{(o.door_type || o.design_number) && <><br /><span style={{ color: "var(--g600)" }}>{[o.door_type, o.design_number && `Design no. ${o.design_number}`].filter(Boolean).join(" · ")}</span></>}</td>
                       <td style={{ fontSize: 12 }}>{fromMm(o.length_mm, "in")}×{fromMm(o.breadth_mm, "in")} in<br /><span style={{ color: "var(--g600)" }}>{o.total_sqft} sqft</span></td>
                       <td style={{ fontSize: 12, ...due.css }}>{fmtDate(o.delivery_date)}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "var(--g600)" }}>{due.label}</span></td>
                       <td><span className={`badge ${o.design === "3D" ? "bb" : "bt"}`}>{o.design}</span></td>
