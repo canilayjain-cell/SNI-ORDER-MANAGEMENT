@@ -62,3 +62,5 @@ export function deliveryDueInfo(deliveryStr?: string | null): { css: CSSProperti
 // WPC panels get a printing choice on each item
 export const isWpcPanel = (panel: string | null) => !!panel && /wpc/i.test(panel);
 export const PRINTING_OPTIONS = ["Single side", "Double side", "None"];
+
+export const PACKING_TYPES = ["Local", "Outstation"];

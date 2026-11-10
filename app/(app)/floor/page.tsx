@@ -261,6 +261,7 @@ function FloorTicket({
         </div>
         <div className="ticket-meta">
           Placed {fmtDate(order.created_at)} · Delivery <span style={due.css}>{fmtDate(order.delivery_date)} ({due.label})</span>
+          {order.packing_type && <> · <b>{order.packing_type} packing</b></>}
         </div>
         {order.notes && <div className="ticket-notes">&quot;{order.notes}&quot;</div>}
         <Stepper order={order} />

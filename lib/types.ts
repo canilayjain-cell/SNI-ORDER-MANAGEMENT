@@ -30,6 +30,7 @@ export interface Order {
   thick: string;
   panel: string;
   printing: string | null;
+  packing_type: string | null;
   door_type: string | null;
   design_number: string | null;
   design_photo_url: string | null;

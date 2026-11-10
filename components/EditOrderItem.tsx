@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useOptionLists } from "@/lib/hooks/useOptionLists";
 import { toast } from "@/lib/toast";
-import { isWpcPanel, orderLabel, PRINTING_OPTIONS } from "@/lib/format";
+import { isWpcPanel, orderLabel, PACKING_TYPES, PRINTING_OPTIONS } from "@/lib/format";
 import { resizeImageToBlob } from "@/lib/image";
 import { uploadToBucket } from "@/lib/storage";
 import { askCustomThickness, fromMm, isCustomThickness, toMm, UNIT_LABEL, type Unit } from "@/lib/units";
@@ -27,6 +27,7 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
     placedBy: order.placed_by ?? "",
     unit: "in" as Unit,
     reminderDays: String(order.reminder_days),
+    packingType: order.packing_type ?? "",
     assignedTo: order.assigned_to ?? "",
     thick: order.thick,
     panel: order.panel,
@@ -115,6 +116,7 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
       p_reminder_days: parseInt(form.reminderDays, 10),
       p_photo_urls: [...keptPhotos, ...uploaded],
       p_printing: isWpcPanel(form.panel) ? form.printing : "",
+      p_packing_type: form.packingType || null,
     });
     setSaving(false);
     if (error) { toast("Could not save changes: " + error.message); return; }
@@ -143,7 +145,7 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
           </div>
         </div>
         {order.line_count > 1 && (
-          <p style={{ fontSize: 12, color: "var(--g600)", margin: "-6px 0 14px" }}>Party and Order placed by apply to all {order.line_count} items. Everything below is for this item only.</p>
+          <p style={{ fontSize: 12, color: "var(--g600)", margin: "-6px 0 14px" }}>Party, Order placed by and Packing type apply to all {order.line_count} items. Everything below is for this item only.</p>
         )}
         <div className="g2">
           <div className="field">
@@ -165,6 +167,13 @@ export default function EditOrderItem({ order, onClose, onSaved }: { order: Orde
               {Array.from(new Set(["1", "2", "3", "7", form.reminderDays])).map((d) => (
                 <option key={d} value={d}>{d === "7" ? "1 week" : `${d} day${d === "1" ? "" : "s"}`} before</option>
               ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Packing type</label>
+            <select value={form.packingType} onChange={(e) => patch({ packingType: e.target.value })}>
+              {!order.packing_type && <option value="">Not set</option>}
+              {PACKING_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
         </div>

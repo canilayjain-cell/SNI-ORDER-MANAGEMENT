@@ -8,7 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { usePhotoViewer } from "@/components/PhotoViewer";
 import SearchSelect from "@/components/SearchSelect";
 import { toast } from "@/lib/toast";
-import { isWpcPanel, PRINTING_OPTIONS } from "@/lib/format";
+import { isWpcPanel, PACKING_TYPES, PRINTING_OPTIONS } from "@/lib/format";
 import { askCustomThickness, isCustomThickness, toMm, UNIT_LABEL, type Unit } from "@/lib/units";
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, Save, RotateCcw, X, Plus, Trash2 } from "lucide-react";
@@ -68,6 +68,7 @@ export default function NewOrderPage() {
   const [items, setItems] = useState<OrderItem[]>([blankItem()]);
   const [delivery, setDelivery] = useState("");
   const [reminderDays, setReminderDays] = useState("2");
+  const [packingType, setPackingType] = useState("");
   const [saving, setSaving] = useState(false);
 
   const today = useMemo(
@@ -130,7 +131,7 @@ export default function NewOrderPage() {
   }
 
   function resetForm() {
-    setParty(""); setPartyOpen(false); setPlacedBy(""); setItems([blankItem()]); setDelivery(""); setReminderDays("2");
+    setParty(""); setPartyOpen(false); setPlacedBy(""); setItems([blankItem()]); setDelivery(""); setReminderDays("2"); setPackingType("");
   }
 
   async function handleSave() {
@@ -151,6 +152,7 @@ export default function NewOrderPage() {
       if (doorTypeRow(it.doorType)?.photo_required && it.photos.length === 0) { alert(`Please add a reference photo for ${it.doorType}${tag}.`); return; }
     }
     if (!delivery) { alert("Please select a delivery date."); return; }
+    if (!packingType) { alert("Please select the packing type."); return; }
 
     setSaving(true);
     try {
@@ -189,6 +191,7 @@ export default function NewOrderPage() {
           thick: it.thick,
           panel: it.panel,
           printing: isWpcPanel(it.panel) ? it.printing : "",
+          packing_type: packingType,
           door_type: it.doorType,
           design_number: it.designNumber,
           length: toMm(it.length, it.unit),
@@ -487,7 +490,7 @@ export default function NewOrderPage() {
       </button>
 
       <div className="card">
-        <div className="card-head">Delivery date &amp; reminder</div>
+        <div className="card-head">Delivery, reminder &amp; packing</div>
         <div className="g2">
           <div className="field">
             <label>Expected delivery date <span className="req">*</span></label>
@@ -500,6 +503,15 @@ export default function NewOrderPage() {
               <option value="2">2 days before</option>
               <option value="3">3 days before</option>
               <option value="7">1 week before</option>
+            </select>
+          </div>
+        </div>
+        <div className="g2">
+          <div className="field">
+            <label>Packing type <span className="req">*</span></label>
+            <select value={packingType} onChange={(e) => setPackingType(e.target.value)}>
+              <option value="">Select...</option>
+              {PACKING_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
         </div>
