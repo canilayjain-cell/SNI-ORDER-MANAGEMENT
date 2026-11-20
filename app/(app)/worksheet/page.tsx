@@ -9,16 +9,19 @@ import PrintDoc from "@/components/PrintDoc";
 import { toast } from "@/lib/toast";
 import { fromMm } from "@/lib/units";
 import type { Order, OrderStatus } from "@/lib/types";
-import { RefreshCw, Download, Printer, Table2 } from "lucide-react";
+import { usePhotoViewer } from "@/components/PhotoViewer";
+import { RefreshCw, Download, Printer, Table2, Images } from "lucide-react";
 
 export default function WorksheetPage() {
   const { orders, reload } = useOrders();
+  const { open, viewer } = usePhotoViewer();
   const { profile } = useAuth();
   const exportAllowed = profile ? canExport(profile.role) : false;
 
   const [fParty, setFParty] = useState("");
   const [fStatus, setFStatus] = useState("");
   const [fDesign, setFDesign] = useState("");
+  const [fPhotos, setFPhotos] = useState<"all" | "with" | "without">("all");
   const [fSearch, setFSearch] = useState("");
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [printOrders, setPrintOrders] = useState<Order[] | null>(null);
@@ -32,9 +35,10 @@ export default function WorksheetPage() {
         (!fParty || o.party === fParty) &&
         (!fStatus || o.status === fStatus) &&
         (!fDesign || o.design === fDesign) &&
+        (fPhotos === "all" || (fPhotos === "with" ? Boolean(o.photos?.length || o.dispatch_photo_url) : !o.photos?.length && !o.dispatch_photo_url)) &&
         (!q || o.order_no.toLowerCase().includes(q) || o.party.toLowerCase().includes(q))
     );
-  }, [orders, fParty, fStatus, fDesign, fSearch]);
+  }, [orders, fParty, fStatus, fDesign, fPhotos, fSearch]);
 
   const counts = useMemo(() => {
     const c: Record<OrderStatus, number> = { pending: 0, in_progress: 0, completed: 0, dispatched: 0, cancelled: 0 };
@@ -155,6 +159,11 @@ export default function WorksheetPage() {
           <option value="2D">2D</option>
           <option value="3D">3D</option>
         </select>
+        <select aria-label="Filter by photos" value={fPhotos} onChange={(e) => setFPhotos(e.target.value as "all" | "with" | "without")}>
+          <option value="all">All photo statuses</option>
+          <option value="with">With photos</option>
+          <option value="without">Without photos</option>
+        </select>
         <input type="text" placeholder="Search order / party..." value={fSearch} onChange={(e) => setFSearch(e.target.value)} />
       </div>
 
@@ -191,6 +200,7 @@ export default function WorksheetPage() {
                   )}
                   <th>Order no.</th><th>Party</th><th>Panel / thick</th>
                   <th>Size &amp; area</th><th>Delivery</th><th>Design</th><th>Status</th>
+                  <th className="no-print">Photos</th>
                   <th>Order date</th><th>In progress</th><th>Completed</th><th>Dispatched</th>
                   <th>Production time</th><th>Dispatch lead time</th><th className="no-print"></th>
                 </tr>
@@ -198,6 +208,7 @@ export default function WorksheetPage() {
               <tbody>
                 {filtered.map((o) => {
                   const due = deliveryDueInfo(o.delivery_date);
+                  const photos = [...(o.photos || []), o.dispatch_photo_url].filter((url): url is string => Boolean(url));
                   return (
                     <tr key={o.id}>
                       {exportAllowed && (
@@ -220,6 +231,13 @@ export default function WorksheetPage() {
                       <td style={{ fontSize: 12, ...due.css }}>{fmtDate(o.delivery_date)}<br /><span style={{ fontSize: 11, fontWeight: 400, color: "var(--g600)" }}>{due.label}</span>{o.packing_type && <><br /><span style={{ fontSize: 11, fontWeight: 400, color: "var(--g600)" }}>{o.packing_type} packing</span></>}</td>
                       <td><span className={`badge ${o.design === "3D" ? "bb" : "bt"}`}>{o.design}</span></td>
                       <td><StatusBadge status={o.status} />{o.status === "cancelled" && o.cancel_reason && <><br /><span style={{ fontSize: 11, color: "var(--red)" }} title={o.cancel_reason}>{o.cancel_reason}</span></>}</td>
+                      <td className="no-print">
+                        {photos.length > 0 && (
+                          <button className="btn btn-sm" aria-label={`View ${photos.length} photos for ${orderLabel(o)}`} onClick={() => open(photos)}>
+                            <Images size={13} /> {photos.length}
+                          </button>
+                        )}
+                      </td>
                       <td className="mono" style={{ fontSize: 11.5 }}>{fmtDateTime(o.created_at)}</td>
                       <td className="mono" style={{ fontSize: 11.5 }}>{fmtDateTime(o.in_progress_at)}</td>
                       <td className="mono" style={{ fontSize: 11.5 }}>{fmtDateTime(o.completed_at)}</td>
@@ -241,6 +259,7 @@ export default function WorksheetPage() {
       )}
 
       {printOrders && <PrintDoc orders={printOrders} />}
+      {viewer}
     </div>
   );
 }

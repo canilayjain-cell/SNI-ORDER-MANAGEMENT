@@ -245,6 +245,7 @@ textarea{resize:vertical}
   .nav,.tab-bar,.no-print{display:none!important}
   body{background:white}
   .print-doc{display:block!important}
+  .floor-page>:not(.print-doc){display:none!important}
   @page{margin:20mm 18mm}
 }
 .print-doc{display:none}

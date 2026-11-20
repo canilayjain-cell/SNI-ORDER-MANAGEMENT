@@ -22,7 +22,8 @@ export default function PrintDoc({ orders }: { orders: Order[] }) {
             {[
               ["Party", o.party], ["Placed by", o.placed_by], ["Assigned to", o.assigned_to_name], ["Design", o.design], ["Thickness", o.thick], ["Panel", o.panel], ["Printing", o.printing], ["Door type", o.door_type], ["Design no.", o.design_number],
               ["Size", `${fromMm(o.length_mm, "in")}×${fromMm(o.breadth_mm, "in")} in`], ["Qty", String(o.qty)], ["Total area", `${o.total_sqft} sqft`],
-              ["Delivery", fmtDate(o.delivery_date)], ["Packing", o.packing_type], ["Reminder", fmtDate(o.reminder_date)], ["Order date", fmtDate(o.created_at)],
+              ["Delivery", fmtDate(o.delivery_date)], ["Packing", o.packing_type],
+              ["Remind me", `${o.reminder_days} day${o.reminder_days === 1 ? "" : "s"} before delivery`], ["Reminder date", fmtDate(o.reminder_date)], ["Order date", fmtDate(o.created_at)],
             ].map(([l, v]) => (
               <div key={l}>
                 <div style={{ fontSize: 11, color: "#5F5E5A", textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</div>
@@ -34,6 +35,16 @@ export default function PrintDoc({ orders }: { orders: Order[] }) {
             <div style={{ background: "#F8F8F6", borderRadius: 8, padding: 12, marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: "#5F5E5A", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Notes</div>
               <div style={{ fontSize: 13 }}>{o.notes}</div>
+            </div>
+          )}
+          {o.photos && o.photos.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: "#5F5E5A", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Reference photos</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {o.photos.map((src, i) => (
+                  <img key={src} src={src} alt={`Reference photo ${i + 1} for ${orderLabel(o)}`} style={{ width: 180, height: 140, objectFit: "contain", border: "1px solid #e0ddd5", borderRadius: 4 }} />
+                ))}
+              </div>
             </div>
           )}
           <div style={{ marginTop: 28, borderTop: "1px solid #e0ddd5", paddingTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24 }}>

@@ -10,9 +10,10 @@ import { deliveryDueInfo, fmtDate, orderLabel } from "@/lib/format";
 import StatusBadge from "@/components/StatusBadge";
 import Stepper from "@/components/Stepper";
 import { usePhotoViewer } from "@/components/PhotoViewer";
+import PrintDoc from "@/components/PrintDoc";
 import EditOrderItem from "@/components/EditOrderItem";
 import type { Order } from "@/lib/types";
-import { ArrowUp, ArrowDown, Clock, CheckCircle2, Package, RefreshCw, ClipboardList, XCircle, Search, X, Pencil, Undo2 } from "lucide-react";
+import { ArrowUp, ArrowDown, Clock, CheckCircle2, Package, RefreshCw, ClipboardList, XCircle, Search, X, Pencil, Undo2, Printer } from "lucide-react";
 
 type SortBy = "queue" | "order_new" | "order_old" | "delivery_soon" | "delivery_late" | "given_to";
 
@@ -28,6 +29,7 @@ export default function FloorQueuePage() {
   const canEdit = profile ? canEditOrders(profile.role) : false;
   const canCancel = profile ? canCancelOrders(profile.role) : false;
   const [editing, setEditing] = useState<Order | null>(null);
+  const [printOrders, setPrintOrders] = useState<Order[] | null>(null);
   const [unit, setUnit] = useState<Unit>("in");
   const [sortBy, setSortBy] = useState<SortBy>("queue");
   const [assignee, setAssignee] = useState("");
@@ -74,6 +76,11 @@ export default function FloorQueuePage() {
   // when the real queue is what's on screen
   const canReorder = canAct && sortBy === "queue" && !partyQuery && !activeAssignee;
 
+  function printSingle(order: Order) {
+    setPrintOrders([order]);
+    setTimeout(() => window.print(), 50);
+  }
+
   async function startOrder(id: string) {
     const { error } = await supabase.rpc("start_order", { p_order_id: id });
     if (error) { toast("Could not start order: " + error.message); return; }
@@ -105,7 +112,7 @@ export default function FloorQueuePage() {
   }
 
   return (
-    <div className="page-inner">
+    <div className="page-inner floor-page">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 600 }}>Floor queue</div>
@@ -205,18 +212,20 @@ export default function FloorQueuePage() {
               onMove={move}
               onCancel={cancelOrder}
               onViewPhotos={open}
+              onPrint={printSingle}
             />
           ))}
         </div>
       )}
       {viewer}
+      {printOrders && <PrintDoc orders={printOrders} />}
       {editing && <EditOrderItem order={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
     </div>
   );
 }
 
 function FloorTicket({
-  order, isFirst, isLast, canAct, canReorder, canEdit, canCancel, unit, onEdit, onStart, onComplete, onUndo, onMove, onCancel, onViewPhotos,
+  order, isFirst, isLast, canAct, canReorder, canEdit, canCancel, unit, onEdit, onStart, onComplete, onUndo, onMove, onCancel, onViewPhotos, onPrint,
 }: {
   order: Order;
   isFirst: boolean;
@@ -233,6 +242,7 @@ function FloorTicket({
   onMove: (id: string, dir: "up" | "down") => void;
   onCancel: (id: string, orderNo: string) => void;
   onViewPhotos: (photos: string[] | undefined) => void;
+  onPrint: (order: Order) => void;
 }) {
   const due = deliveryDueInfo(order.delivery_date);
   return (
@@ -297,6 +307,9 @@ function FloorTicket({
             <Pencil size={13} /> Edit
           </button>
         )}
+        <button className="btn btn-sm" onClick={() => onPrint(order)}>
+          <Printer size={13} /> Print PDF
+        </button>
         {canCancel && (
           <button className="btn btn-sm btn-danger" onClick={() => onCancel(order.id, order.order_no)}>
             <XCircle size={13} /> Cancel order
