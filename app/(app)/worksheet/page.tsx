@@ -285,21 +285,21 @@ export default function WorksheetPage() {
         </div>
         {productionError && <div role="alert" className="banner error" style={{ marginBottom: 10 }}>Could not load monthly production: {productionError}</div>}
         {targetsError && <div role="alert" className="banner error" style={{ marginBottom: 10 }}>Could not load production targets: {targetsError}</div>}
-        <div className="stat-grid" style={{ marginBottom: 10 }}>
+        <div className="production-total-grid">
           <StatTile
             label="Total output this month"
             value={productionLoading ? "Loading..." : productionError ? "Unavailable" : `${formatSqft(Object.values(monthlyOutput).reduce((sum, output) => sum + output, 0))} sqft`}
           />
         </div>
-        <div className="chart-grid">
+        <div className="chart-grid production-grid">
           {PRODUCTION_PANELS.map(({ panel, label }) => {
             const output = monthlyOutput[panel];
             const target = targets[panel];
             const progress = target > 0 ? (output / target) * 100 : 0;
             return (
-              <div className="chart-card" key={panel}>
+              <div className="chart-card production-card" key={panel}>
                 <h3>{label}</h3>
-                <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 2 }}>
+                <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 2 }}>
                   {productionLoading ? "Loading..." : productionError ? "Unavailable" : `${formatSqft(output)} sqft`}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--g600)", marginBottom: 10 }}>
