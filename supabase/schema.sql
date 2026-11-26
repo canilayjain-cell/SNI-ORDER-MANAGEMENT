@@ -436,7 +436,74 @@ end;
 $$;
 
 -- ============================================================================
--- 5. STORAGE  (reference photos + dispatch photos)
+-- 5. MONTHLY PRODUCTION OUTPUT AND TARGETS
+-- ============================================================================
+
+create table public.production_targets (
+  panel text primary key,
+  target_sqft numeric not null check (target_sqft > 0)
+);
+
+insert into public.production_targets (panel, target_sqft) values
+  ('WPC DOOR', 15000),
+  ('Flush Door', 30000),
+  ('HDHMR', 10000);
+
+alter table public.production_targets enable row level security;
+
+create policy "production targets: authenticated read" on public.production_targets
+  for select using (auth.role() = 'authenticated');
+
+create policy "production targets: admin update" on public.production_targets
+  for update using (public.is_admin()) with check (public.is_admin());
+
+create or replace function public.monthly_production_output()
+returns table (production_month date, panel text, total_sqft numeric)
+language plpgsql stable security definer set search_path = public
+as $$
+declare
+  v_month_start timestamptz := date_trunc('month', now() at time zone 'Asia/Kolkata') at time zone 'Asia/Kolkata';
+  v_month_end timestamptz := v_month_start + interval '1 month';
+begin
+  if auth.uid() is null or coalesce(public.current_role(), '') not in ('admin', 'sales') then
+    raise exception 'Not allowed to view monthly production output';
+  end if;
+
+  return query
+  with production_panels(panel) as (
+    values ('WPC DOOR'::text), ('Flush Door'::text), ('HDHMR'::text)
+  ),
+  panel_totals as (
+    select
+      case upper(btrim(o.panel))
+        when 'WPC DOOR' then 'WPC DOOR'
+        when 'FLUSH DOOR' then 'Flush Door'
+        when 'HDHMR' then 'HDHMR'
+      end as panel,
+      sum(o.total_sqft)::numeric as total_sqft
+    from public.orders o
+    where o.status in ('completed', 'dispatched')
+      and o.completed_at >= v_month_start
+      and o.completed_at < v_month_end
+      and upper(btrim(o.panel)) in ('WPC DOOR', 'FLUSH DOOR', 'HDHMR')
+    group by 1
+  )
+  select
+    (v_month_start at time zone 'Asia/Kolkata')::date,
+    production_panels.panel,
+    coalesce(panel_totals.total_sqft, 0)::numeric
+  from production_panels
+  left join panel_totals on panel_totals.panel = production_panels.panel
+  order by case production_panels.panel
+    when 'WPC DOOR' then 1
+    when 'Flush Door' then 2
+    else 3
+  end;
+end;
+$$;
+
+-- ============================================================================
+-- 6. STORAGE  (reference photos + dispatch photos)
 -- ============================================================================
 
 insert into storage.buckets (id, name, public) values ('reference-photos','reference-photos', true)
@@ -457,13 +524,13 @@ create policy "dispatch-photos: factory/admin upload" on storage.objects
   for insert with check (bucket_id = 'dispatch-photos' and public.is_factory_or_admin());
 
 -- ============================================================================
--- 6. REALTIME  (so all 3 dashboards update live, no manual refresh needed)
+-- 7. REALTIME  (so all 3 dashboards update live, no manual refresh needed)
 -- ============================================================================
 
 alter publication supabase_realtime add table public.orders;
 
 -- ============================================================================
--- 7. GRANTS
+-- 8. GRANTS
 -- ============================================================================
 
 grant usage on schema public to authenticated;
@@ -473,6 +540,7 @@ grant select, insert on public.option_lists to authenticated;
 grant select, insert, update on public.orders to authenticated;
 grant select, insert on public.order_photos to authenticated;
 grant select on public.order_history to authenticated;
+grant select, update on public.production_targets to authenticated;
 
 grant execute on function public.current_role() to authenticated;
 grant execute on function public.is_admin() to authenticated;
@@ -485,6 +553,8 @@ grant execute on function public.complete_order(uuid) to authenticated;
 grant execute on function public.set_dispatch_photo(uuid,text) to authenticated;
 grant execute on function public.confirm_dispatch(uuid) to authenticated;
 grant execute on function public.resequence_order(uuid,text) to authenticated;
+revoke all on function public.monthly_production_output() from public, anon;
+grant execute on function public.monthly_production_output() to authenticated;
 
 -- ============================================================================
 -- UPGRADING AN EXISTING DATABASE
@@ -494,6 +564,7 @@ grant execute on function public.resequence_order(uuid,text) to authenticated;
 --
 --   supabase/migration-001.sql   -- multi-item orders (line_no / line_count)
 --   supabase/migration-002.sql   -- per-FY numbering, salesperson, cancellation
+--   supabase/migration-024.sql   -- monthly production output and editable targets
 --
 -- Each is idempotent (safe to run more than once).
 -- ============================================================================

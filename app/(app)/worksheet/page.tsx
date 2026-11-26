@@ -1,8 +1,9 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOrders } from "@/lib/hooks/useOrders";
 import { useAuth } from "@/components/AuthProvider";
 import { canExport } from "@/lib/roles";
+import { createClient } from "@/lib/supabase/client";
 import { average, deliveryDueInfo, durationHours, fmtDate, fmtDateTime, fmtDuration, fmtHours, orderLabel } from "@/lib/format";
 import StatusBadge, { STATUS_COLOR, STATUS_LABEL } from "@/components/StatusBadge";
 import PrintDoc from "@/components/PrintDoc";
@@ -12,11 +13,41 @@ import type { Order, OrderStatus } from "@/lib/types";
 import { usePhotoViewer } from "@/components/PhotoViewer";
 import { RefreshCw, Download, Printer, Table2, Images } from "lucide-react";
 
+type ProductionPanel = "WPC DOOR" | "Flush Door" | "HDHMR";
+type ProductionTargetRow = { panel: string; target_sqft: number | string };
+type MonthlyProductionRow = { production_month: string; panel: string; total_sqft: number | string };
+
+const PRODUCTION_PANELS: { panel: ProductionPanel; label: string }[] = [
+  { panel: "WPC DOOR", label: "WPC" },
+  { panel: "Flush Door", label: "Flush doors" },
+  { panel: "HDHMR", label: "HDHMR" },
+];
+
+const DEFAULT_TARGETS: Record<ProductionPanel, number> = {
+  "WPC DOOR": 15000,
+  "Flush Door": 30000,
+  HDHMR: 10000,
+};
+
+const DEFAULT_TARGET_DRAFTS: Record<ProductionPanel, string> = {
+  "WPC DOOR": "15000",
+  "Flush Door": "30000",
+  HDHMR: "10000",
+};
+
+const EMPTY_OUTPUT: Record<ProductionPanel, number> = {
+  "WPC DOOR": 0,
+  "Flush Door": 0,
+  HDHMR: 0,
+};
+
 export default function WorksheetPage() {
   const { orders, reload } = useOrders();
   const { open, viewer } = usePhotoViewer();
   const { profile } = useAuth();
   const exportAllowed = profile ? canExport(profile.role) : false;
+  const canEditTargets = profile?.role === "admin";
+  const supabase = useMemo(() => createClient(), []);
 
   const [fParty, setFParty] = useState("");
   const [fStatus, setFStatus] = useState("");
@@ -25,6 +56,119 @@ export default function WorksheetPage() {
   const [fSearch, setFSearch] = useState("");
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [printOrders, setPrintOrders] = useState<Order[] | null>(null);
+  const [targets, setTargets] = useState(DEFAULT_TARGETS);
+  const [targetDrafts, setTargetDrafts] = useState(DEFAULT_TARGET_DRAFTS);
+  const [monthlyOutput, setMonthlyOutput] = useState(EMPTY_OUTPUT);
+  const [productionMonth, setProductionMonth] = useState<string | null>(null);
+  const [targetsLoading, setTargetsLoading] = useState(true);
+  const [productionLoading, setProductionLoading] = useState(true);
+  const [targetsError, setTargetsError] = useState("");
+  const [productionError, setProductionError] = useState("");
+  const [savingTarget, setSavingTarget] = useState<ProductionPanel | null>(null);
+
+  const loadTargets = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("production_targets")
+      .select("panel, target_sqft")
+      .returns<ProductionTargetRow[]>();
+    if (error) {
+      setTargetsError(error.message);
+      setTargetsLoading(false);
+      return;
+    }
+
+    const targetRows = new Map((data ?? []).map((row) => [row.panel, Number(row.target_sqft)]));
+    const missingPanels = PRODUCTION_PANELS.filter(({ panel }) => !targetRows.has(panel));
+    if (missingPanels.length) {
+      setTargetsError(`Production targets are missing for ${missingPanels.map(({ label }) => label).join(", ")}. Run supabase/migration-024.sql.`);
+      setTargetsLoading(false);
+      return;
+    }
+
+    const nextTargets: Record<ProductionPanel, number> = { ...DEFAULT_TARGETS };
+    for (const { panel } of PRODUCTION_PANELS) {
+      const target = targetRows.get(panel);
+      if (target !== undefined) nextTargets[panel] = target;
+    }
+    setTargets(nextTargets);
+    setTargetDrafts({
+      "WPC DOOR": String(nextTargets["WPC DOOR"]),
+      "Flush Door": String(nextTargets["Flush Door"]),
+      HDHMR: String(nextTargets.HDHMR),
+    });
+    setTargetsError("");
+    setTargetsLoading(false);
+  }, [supabase]);
+
+  const loadMonthlyProduction = useCallback(async () => {
+    const { data, error } = await supabase.rpc("monthly_production_output");
+    if (error) {
+      setProductionError(error.message);
+      setProductionLoading(false);
+      return;
+    }
+
+    const rows = Array.isArray(data) ? data.filter(isMonthlyProductionRow) : [];
+    if (rows.length !== PRODUCTION_PANELS.length) {
+      setProductionError("Monthly production data is incomplete. Run supabase/migration-024.sql.");
+      setProductionLoading(false);
+      return;
+    }
+
+    const outputRows = new Map(rows.map((row) => [row.panel, Number(row.total_sqft)]));
+    const missingPanels = PRODUCTION_PANELS.filter(({ panel }) => !outputRows.has(panel));
+    if (missingPanels.length) {
+      setProductionError("Monthly production data is incomplete. Run supabase/migration-024.sql.");
+      setProductionLoading(false);
+      return;
+    }
+
+    const nextOutput: Record<ProductionPanel, number> = { ...EMPTY_OUTPUT };
+    for (const { panel } of PRODUCTION_PANELS) {
+      const output = outputRows.get(panel);
+      if (output !== undefined) nextOutput[panel] = output;
+    }
+    setMonthlyOutput(nextOutput);
+    setProductionMonth(rows[0].production_month);
+    setProductionError("");
+    setProductionLoading(false);
+  }, [supabase]);
+
+  useEffect(() => { void loadTargets(); }, [loadTargets]);
+  useEffect(() => { void loadMonthlyProduction(); }, [loadMonthlyProduction, orders]);
+
+  async function saveTarget(panel: ProductionPanel) {
+    const target = Number(targetDrafts[panel]);
+    if (!Number.isFinite(target) || target <= 0) {
+      toast("Enter a target greater than zero");
+      return;
+    }
+
+    setSavingTarget(panel);
+    const { data, error } = await supabase
+      .from("production_targets")
+      .update({ target_sqft: target })
+      .eq("panel", panel)
+      .select("target_sqft")
+      .single();
+    if (error) {
+      toast("Could not save production target: " + error.message);
+      setSavingTarget(null);
+      return;
+    }
+
+    const savedTarget = Number(data.target_sqft);
+    setTargets((current) => ({ ...current, [panel]: savedTarget }));
+    setTargetDrafts((current) => ({ ...current, [panel]: String(savedTarget) }));
+    setSavingTarget(null);
+    toast("Production target saved");
+  }
+
+  function refreshWorksheet() {
+    void reload();
+    void loadTargets();
+    void loadMonthlyProduction();
+  }
 
   const parties = useMemo(() => Array.from(new Set(orders.map((o) => o.party))).sort(), [orders]);
 
@@ -112,7 +256,7 @@ export default function WorksheetPage() {
       <div className="no-print" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
         <div style={{ fontSize: 16, fontWeight: 600 }}>Order worksheet</div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="btn btn-sm" onClick={() => reload()}><RefreshCw size={13} /> Refresh</button>
+          <button className="btn btn-sm" onClick={refreshWorksheet}><RefreshCw size={13} /> Refresh</button>
           {exportAllowed && <button className="btn btn-sm" onClick={exportCSV}><Download size={13} /> Export CSV</button>}
           {exportAllowed && <button className="btn btn-sm" onClick={printChecked}><Printer size={13} /> Print selected</button>}
         </div>
@@ -127,6 +271,79 @@ export default function WorksheetPage() {
         <StatTile label="Avg. production time" value={fmtHours(avgProd)} sub="In progress → Completed" />
         <StatTile label="Avg. dispatch lead time" value={fmtHours(avgDispatch)} sub="Order date → Dispatched" />
       </div>
+
+      <section className="no-print" aria-labelledby="monthly-production-heading" style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+          <h2 id="monthly-production-heading" style={{ fontSize: 15, fontWeight: 600 }}>
+            Monthly production output
+          </h2>
+          <span style={{ fontSize: 12, color: "var(--g600)" }}>
+            {productionMonth
+              ? new Date(`${productionMonth}T12:00:00`).toLocaleDateString(undefined, { month: "long", year: "numeric" })
+              : "Current month"}
+          </span>
+        </div>
+        {productionError && <div role="alert" className="banner error" style={{ marginBottom: 10 }}>Could not load monthly production: {productionError}</div>}
+        {targetsError && <div role="alert" className="banner error" style={{ marginBottom: 10 }}>Could not load production targets: {targetsError}</div>}
+        <div className="stat-grid" style={{ marginBottom: 10 }}>
+          <StatTile
+            label="Total output this month"
+            value={productionLoading ? "Loading..." : productionError ? "Unavailable" : `${formatSqft(Object.values(monthlyOutput).reduce((sum, output) => sum + output, 0))} sqft`}
+          />
+        </div>
+        <div className="chart-grid">
+          {PRODUCTION_PANELS.map(({ panel, label }) => {
+            const output = monthlyOutput[panel];
+            const target = targets[panel];
+            const progress = target > 0 ? (output / target) * 100 : 0;
+            return (
+              <div className="chart-card" key={panel}>
+                <h3>{label}</h3>
+                <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 2 }}>
+                  {productionLoading ? "Loading..." : productionError ? "Unavailable" : `${formatSqft(output)} sqft`}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--g600)", marginBottom: 10 }}>
+                  of {targetsLoading ? "Loading..." : targetsError ? "Unavailable" : `${formatSqft(target)} sqft`} target
+                  {!productionLoading && !productionError && !targetsLoading && !targetsError && ` · ${progress.toFixed(1)}%`}
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label={`${label} monthly production target progress`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.min(progress, 100)}
+                  style={{ height: 7, borderRadius: 4, background: "var(--g100)", overflow: "hidden", marginBottom: 12 }}
+                >
+                  <div style={{ height: "100%", width: `${Math.min(progress, 100)}%`, background: "var(--blue)", transition: "width .2s" }} />
+                </div>
+                {canEditTargets && (
+                  <div style={{ display: "flex", alignItems: "end", gap: 8 }}>
+                    <div className="field" style={{ flex: 1 }}>
+                      <label htmlFor={`target-${panel}`}>Monthly target (sqft)</label>
+                      <input
+                        id={`target-${panel}`}
+                        type="number"
+                        min="0.01"
+                        step="any"
+                        value={targetDrafts[panel]}
+                        disabled={targetsLoading || Boolean(targetsError) || savingTarget !== null}
+                        onChange={(event) => setTargetDrafts((current) => ({ ...current, [panel]: event.target.value }))}
+                      />
+                    </div>
+                    <button
+                      className="btn btn-sm btn-primary"
+                      onClick={() => saveTarget(panel)}
+                      disabled={targetsLoading || Boolean(targetsError) || savingTarget !== null}
+                    >
+                      {savingTarget === panel ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {exportAllowed && (
         <div className="chart-grid no-print">
@@ -272,6 +489,18 @@ function StatTile({ label, value, color, sub }: { label: string; value: string |
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   );
+}
+
+function formatSqft(value: number) {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function isMonthlyProductionRow(value: unknown): value is MonthlyProductionRow {
+  if (typeof value !== "object" || value === null) return false;
+  const row = value as Record<string, unknown>;
+  return typeof row.production_month === "string" &&
+    typeof row.panel === "string" &&
+    (typeof row.total_sqft === "number" || typeof row.total_sqft === "string");
 }
 
 function BarChart({ data, color }: { data: { label: string; value: number }[]; color: string }) {

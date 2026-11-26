@@ -124,6 +124,10 @@ role itself. Editing the browser's JavaScript cannot bypass this.
 - **Schema upgrades**: `supabase/schema.sql` is the fresh-install schema.
   Existing databases apply `supabase/migration-001.sql` then
   `migration-002.sql` (both idempotent).
+- **Monthly production dashboard**: fresh installs get the production targets
+  and monthly output report from `supabase/schema.sql`. Existing databases
+  must run `supabase/migration-024.sql` to add the dashboard data and
+  admin-editable targets.
 - **Middleware** (`middleware.ts`) refreshes the Supabase session on every
   request and redirects signed-out users to `/login`, and redirects a
   signed-in user away from any tab their role can't reach.
